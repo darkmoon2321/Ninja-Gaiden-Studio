@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/img">
+        <file>img/palette_select_border.png</file>
+    </qresource>
+</RCC>
