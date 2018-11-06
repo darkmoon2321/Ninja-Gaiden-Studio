@@ -1422,6 +1422,36 @@ uint32_t NESpalette::colorDiff(QRgb col){
     return min_diff;
 }
 
+uint32_t NESpalette::colorDiffSprite(QRgb col){
+    unsigned int i;
+    uint32_t min_diff = 0xffffffff;
+    uint32_t total_diff;
+    for(i=1;i<4;i++){
+        if(p[i].red() >= qRed(col)){
+            total_diff = p[i].red() - qRed(col);
+        }
+        else{
+            total_diff = qRed(col) - p[i].red();
+        }
+        if(p[i].green() >= qGreen(col)){
+            total_diff += p[i].green() - qGreen(col);
+        }
+        else{
+            total_diff += qGreen(col) - p[i].green();
+        }
+        if(p[i].blue() >= qBlue(col)){
+            total_diff += p[i].blue() - qBlue(col);
+        }
+        else{
+            total_diff += qBlue(col) - p[i].blue();
+        }
+        if(total_diff < min_diff){
+            min_diff = total_diff;
+        }
+    }
+    return min_diff;
+}
+
 uint8_t NESpalette::bestColor(QRgb col){
     unsigned int i;
     uint32_t min_diff = 0xffffffff;
@@ -1453,6 +1483,39 @@ uint8_t NESpalette::bestColor(QRgb col){
     }
     return best_color;
 }
+
+uint8_t NESpalette::bestSpriteColor(QRgb col){
+    unsigned int i;
+    uint32_t min_diff = 0xffffffff;
+    uint32_t total_diff;
+    uint8_t best_color = 0;
+    for(i=1;i<4;i++){
+        if(p[i].red() >= qRed(col)){
+            total_diff = p[i].red() - qRed(col);
+        }
+        else{
+            total_diff = qRed(col) - p[i].red();
+        }
+        if(p[i].green() >= qGreen(col)){
+            total_diff += p[i].green() - qGreen(col);
+        }
+        else{
+            total_diff += qGreen(col) - p[i].green();
+        }
+        if(p[i].blue() >= qBlue(col)){
+            total_diff += p[i].blue() - qBlue(col);
+        }
+        else{
+            total_diff += qBlue(col) - p[i].blue();
+        }
+        if(total_diff < min_diff){
+            min_diff = total_diff;
+            best_color = i;
+        }
+    }
+    return best_color;
+}
+
 
 bool NESpalette::sameColors(const NESpalette & to_test){
     unsigned int i,j;

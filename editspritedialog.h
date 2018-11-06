@@ -14,6 +14,7 @@
 #include <QClipboard>
 #include <QObjectList>
 #include "arrangementedititem.h"
+#include <QMenu>
 
 namespace Ui {
 class editSpriteDialog;
@@ -30,6 +31,8 @@ private slots:
     void on_color_selected(uint8_t,uint8_t);
     void bg_chr_selection_changed();
     void sprite_chr_selection_changed();
+    void bg_chr_selection_noclick();
+    void sprite_chr_selection_noclick();
     void copy_slot();
     void paste_slot();
     void undo_slot();
@@ -57,6 +60,7 @@ private slots:
     void on_radioButton_clicked();
     void on_radioButton_2_clicked();
     void paste_position(QMouseEvent *);
+    void showContextMenu(const QPoint&);
 
 private:
     Ui::editSpriteDialog *ui;
@@ -134,6 +138,8 @@ private:
     bool duplicateTile(uint8_t);
     void drawPixel(uint8_t,uint8_t);
     void paste(QMouseEvent *);
+    QList<QGraphicsItem *> itemsAtPos(const QPointF & pos);
+    void accept();
 };
 
 #endif // EDITSPRITEDIALOG_H

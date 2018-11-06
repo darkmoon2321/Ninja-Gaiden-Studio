@@ -6,8 +6,13 @@ spriteView::spriteView(QWidget * parent) : QGraphicsView(parent)
 }
 
 void spriteView::mousePressEvent(QMouseEvent * event){
-    emit tile_pressed(event);
-    QGraphicsView::mousePressEvent(event);
+    if(event->buttons() == Qt::RightButton){
+        emit customContextMenuRequested(event->pos());
+    }
+    else{
+        emit tile_pressed(event);
+        QGraphicsView::mousePressEvent(event);
+    }
 }
 
 void spriteView::mouseMoveEvent(QMouseEvent * event){

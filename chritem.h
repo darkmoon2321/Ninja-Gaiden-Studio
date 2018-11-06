@@ -11,11 +11,13 @@ class chrItem : public QObject, public QGraphicsPixmapItem
 public:
     chrItem();
     void mousePressEvent(QGraphicsSceneMouseEvent *);
+    void showSelected();
     //void mouseMoveEvent(QGraphicsSceneMouseEvent *);
     void setID(uint8_t);
     uint8_t getID();
 signals:
     void chr_pressed();
+    void chr_selected();
 private:
     uint8_t id;
 };

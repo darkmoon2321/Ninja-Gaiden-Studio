@@ -94,6 +94,7 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
         bg_chr_array[i] = new chrItem();
         bg_chr_array[i]->setID(i);
         connect(bg_chr_array[i],SIGNAL(chr_pressed()),this,SLOT(bg_chr_selection_changed()));
+        connect(bg_chr_array[i],SIGNAL(chr_selected()),this,SLOT(bg_chr_selection_noclick()));
         bg_chr_array[i]->setOffset((i&0xf)*10,(i>>4)*10);
         bg_CHR_scene.addItem(bg_chr_array[i]);
     }
@@ -101,6 +102,7 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
         sprite_chr_array[i] = new chrItem();
         sprite_chr_array[i]->setID(i);
         connect(sprite_chr_array[i],SIGNAL(chr_pressed()),this,SLOT(sprite_chr_selection_changed()));
+        connect(sprite_chr_array[i],SIGNAL(chr_selected()),this,SLOT(sprite_chr_selection_noclick()));
         sprite_chr_array[i]->setOffset((i&0xf)*10,(i>>4)*10);
         sprite_CHR_scene.addItem(sprite_chr_array[i]);
     }
@@ -180,6 +182,8 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     ui->horizontalScrollBar->raise();
     ui->verticalScrollBar->raise();
     widget_list.clear();
+    arrangement_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(arrangement_view,SIGNAL(customContextMenuRequested(const QPoint&)),this,SLOT(showContextMenu(const QPoint&)));
 
     QObjectList child_list = children();
     for(i=0;i<child_list.size();i++){
@@ -351,6 +355,24 @@ void editSpriteDialog::sprite_chr_selection_changed(){
     sprite_tile_selected = true;
 }
 
+void editSpriteDialog::bg_chr_selection_noclick(){
+    chrItem * selection = qobject_cast<chrItem *>(sender());
+    selected_tile = selection->getID();
+    selected_tile &= 0xFE;
+    bg_CHR_scene.addItem(tile_selector_pix_item);
+    tile_selector_pix_item->setOffset((selected_tile&0xf)*10 - 2,(selected_tile>>4)*10 - 2);
+    sprite_tile_selected = false;
+}
+
+void editSpriteDialog::sprite_chr_selection_noclick(){
+    chrItem * selection = qobject_cast<chrItem *>(sender());
+    selected_tile = selection->getID();
+    selected_tile &=0xFE;
+    sprite_CHR_scene.addItem(tile_selector_pix_item);
+    tile_selector_pix_item->setOffset((selected_tile&0xf)*10 - 2,(selected_tile>>4)*10 - 2);
+    sprite_tile_selected = true;
+}
+
 void editSpriteDialog::copy_slot(){
     int i,j,k;
     QRgb * get_scanline;
@@ -416,34 +438,54 @@ void editSpriteDialog::copy_slot(){
         max_x += 8;
         max_y += 16;
         QImage from_arrangement(max_x - min_x,max_y - min_y,QImage::Format_ARGB32);
+        uint8_t color_index;
+        NEStile * current_nestile;
         from_arrangement.fill(Qt::transparent);
         for(i=image.size()-1;i>=0;i--){
             current_tile = image.at(i);
             uint16_t tile_x = current_tile->offset().x() - min_x;
             uint16_t tile_y = current_tile->offset().y() - min_y;
             if(current_tile->isSelected()){
-                for(j=0;j<8;j++){
-                    if(current_tile->getTileType()){
-                        get_scanline = (QRgb *)sprite_tiles[current_tile->getAttribs()][current_tile->getTileID()&0xfe].scanLine(j);
-                    }
-                    else{
-                        get_scanline = (QRgb *)bg_tiles[current_tile->getAttribs()][current_tile->getTileID()&0xfe].scanLine(j);
-                    }
-                    put_scanline = (QRgb *)from_arrangement.scanLine(tile_y + j);
-                    for(k=0;k<8;k++){
-                        put_scanline[tile_x + k] = get_scanline[k];
-                    }
+                if(current_tile->getTileType()){
+                    current_nestile = &sprite_page.t[current_tile->getTileID()&0xfe];
+                }
+                else{
+                    current_nestile = &bg_page.t[current_tile->getTileID()&0xfe];
                 }
                 for(j=0;j<8;j++){
-                    if(current_tile->getTileType()){
-                        get_scanline = (QRgb *)sprite_tiles[current_tile->getAttribs()][current_tile->getTileID()|1].scanLine(j);
+                    put_scanline = (QRgb *)from_arrangement.scanLine(tile_y + j);
+                    for(k=0;k<8;k++){
+                        color_index = 0;
+                        color_index |= (current_nestile->t[j] >> (7-k))&0x01;
+                        color_index |= ((current_nestile->t[j+8] >> (7-k))&0x01)<<1;
+                        if(!color_index) continue;
+                        if(current_tile->getFlip()){
+                            put_scanline[tile_x + 7 - k] = pals.p[current_tile->getAttribs()].p[color_index].rgb();
+                        }
+                        else{
+                            put_scanline[tile_x + k] = pals.p[current_tile->getAttribs()].p[color_index].rgb();
+                        }
                     }
-                    else{
-                        get_scanline = (QRgb *)bg_tiles[current_tile->getAttribs()][current_tile->getTileID()|1].scanLine(j);
-                    }
+                }
+                if(current_tile->getTileType()){
+                    current_nestile = &sprite_page.t[current_tile->getTileID() | 0x01];
+                }
+                else{
+                    current_nestile = &bg_page.t[current_tile->getTileID() | 0x01];
+                }
+                for(j=0;j<8;j++){
                     put_scanline = (QRgb *)from_arrangement.scanLine(tile_y + j + 8);
                     for(k=0;k<8;k++){
-                        put_scanline[tile_x + k] = get_scanline[k];
+                        color_index = 0;
+                        color_index |= (current_nestile->t[j] >> (7-k))&0x01;
+                        color_index |= ((current_nestile->t[j+8] >> (7-k))&0x01)<<1;
+                        if(!color_index) continue;
+                        if(current_tile->getFlip()){
+                            put_scanline[tile_x + 7 - k] = pals.p[current_tile->getAttribs()].p[color_index].rgb();
+                        }
+                        else{
+                            put_scanline[tile_x + k] = pals.p[current_tile->getAttribs()].p[color_index].rgb();
+                        }
                     }
                 }
             }
@@ -463,7 +505,8 @@ void editSpriteDialog::paste_slot(){
     for(i=0;i<image_to_paste.height();i++){
         edit_line = (QRgb *) image_to_paste.scanLine(i);
         for(j=0;j<image_to_paste.width();j++){
-            pixel_color = QColor::fromRgb(edit_line[j]);
+            pixel_color = QColor::fromRgba(edit_line[j]);
+            if(pixel_color.alpha()!=0xff) continue;
             pixel_color.setAlpha(200);
             edit_line[j] = pixel_color.rgba();
         }
@@ -782,11 +825,46 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
     if(!draw_mode && !paste_ready){
         last_focus = 1;
         if(!target_candidates.size()) return;
-        target = (spriteEditItem *)(target_candidates.at(0));
+        for(i=0;i<target_candidates.size();i++){
+            if(((spriteEditItem *)(target_candidates.at(i)))->getID() == 0xff){
+                return;
+            }
+            mask_pixels current_mask;
+            x = scene_coordinate_x;
+            y = scene_coordinate_y;
+            x -= ((spriteEditItem *)(target_candidates.at(i)))->offset().x();
+            y -= ((spriteEditItem *)(target_candidates.at(i)))->offset().y();
+            arrangement_target = ((spriteEditItem *)(target_candidates.at(i)))->getID();
+            current_mask.arrangement_target = arrangement_target;
+            current_mask.x = x;
+            current_mask.y = y;
+            if(y>=8){
+                y-=8;
+                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
+            }
+            else{
+                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+            }
+            current_mask.analysis = analyzeTile(CHR_target,x,y);
+            if(current_mask.analysis&4) break;
+        }
+        if(i>=target_candidates.size()){
+            target = (spriteEditItem *)(target_candidates.at(0));
+        }
+        else{
+            target = (spriteEditItem *)(target_candidates.at(i));
+        }
+
         arrangement_tile = target->getID();
-        if(arrangement_tile = 0xff){
+        if(arrangement_tile == 0xff){
             arrangement_tile = -1;
             return;
+        }
+        if(target->getTileType()){
+            sprite_chr_array[target->getTileID()&0xfe]->showSelected();
+        }
+        else{
+            bg_chr_array[target->getTileID()&0xfe]->showSelected();
         }
         uint8_t old_palette = selected_palette;
         selected_palette = target->getAttribs()&3;
@@ -841,6 +919,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
         }
     }
     if(!target) return;
+
     x = scene_coordinate_x;
     y = scene_coordinate_y;
     x -= target->offset().x();
@@ -1406,16 +1485,32 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
 
     tile_count = 0;
     for(i=0;i<edit_arrangement.arrangement.length();){
+        temp_x = edit_arrangement.arrangement[i];
         if(edit_arrangement.arrangement[i++]&0x80) break;
+        if(temp_x>=0x29) temp_x=0;
+        temp_x = (uint8_t)(spritexy_values[temp_x] + 0x80);
         tiles_in_column = edit_arrangement.arrangement[i++];
         for(j=0;j<tiles_in_column;j++){
+            temp_y = (uint8_t)(0x80 + spritexy_values[((uint8_t)edit_arrangement.arrangement[i+1])>>3]);
             image.at(tile_count>>1)->setTileID((edit_arrangement.arrangement[i]&0x1)| ((edit_arrangement.tiles.at(tile_count)->id)&0xFE));
             image.at(tile_count>>1)->setAttribs((edit_arrangement.arrangement[i+1]&0x6)>>1);
             image.at(tile_count>>1)->setFlip(edit_arrangement.arrangement[i+1]&1);
             image.at(tile_count>>1)->setTileType(edit_arrangement.arrangement[i]&0x1);
+            image.at(tile_count>>1)->setOffset(temp_x,temp_y);
             i+=2;
             tile_count+=2;
         }
+    }
+    if(sprite_free){
+        sprite_page.sprite_used[tile_free] = true;
+        sprite_page.sprite_used[tile_free + 1] = true;
+    }
+    else{
+        bg_page.sprite_used[tile_free] = true;
+        bg_page.sprite_used[tile_free + 1] = true;
+    }
+    for(i=0;i<image.size();i++){
+        image.at(i)->setZValue((image.size()-i)+1);
     }
     return result;
 }
@@ -1712,6 +1807,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
     spriteEditItem * target = NULL;
     std::vector<mask_pixels> masks;
     uint8_t x,y;
+    uint8_t preferred_palette;
     uint8_t arrangement_target;
     int i,j,k,l;
     NEStile * CHR_target;
@@ -1772,6 +1868,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
     QRgb * image_line;
     pals.convertColors();
     QImage temp_image = clipboard_image;
+
     for(k=0;k<temp_image.height();k++){
         scene_coordinate_y = pixel_y + k;
         image_line = (QRgb *) temp_image.scanLine(k);
@@ -1779,37 +1876,42 @@ void editSpriteDialog::paste(QMouseEvent * event){
             scene_coordinate_x = pixel_x + l;
             uint32_t min_diff = 0xffffffff;
             uint32_t current_diff;
-            if(!(k&7) && !(l&7)){   //at every new tile boundary
+            if(!(k&15) && !(l&7)){   //at every new tile boundary we need to identify a preferred palette
                 QRgb * tile_test_line;
                  for(i=0;i<4;i++){
                      current_diff = 0;
-                     for(int m=0;m<8;m++){
+                     for(int m=0;m<16;m++){
                         if((k+m) >= temp_image.height()) break;
                         tile_test_line = (QRgb *)temp_image.scanLine(k+m);
                         for(int n=0;n<8;n++){
                             if((n+l) >= temp_image.width()) break;
-                            current_diff += pals.p[i].colorDiff(tile_test_line[n+l]);
+                            current_diff += pals.p[i].colorDiffSprite(tile_test_line[n+l]);
                         }
                      }
                      if(current_diff < min_diff){
                          min_diff = current_diff;
-                         selected_palette = i;
+                         preferred_palette = i;
                      }
                  }
             }
-            else{
-                for(i=0;i<4;i++){
-                    current_diff = pals.p[i].colorDiff(image_line[l]);
-                    if(current_diff < min_diff){
-                        min_diff = current_diff;
-                        selected_palette = i;
-                    }
+            if(QColor::fromRgba(image_line[l]).alpha()!=0xff) continue; //don't attempt to draw blank pixels
+            min_diff = pals.p[preferred_palette].colorDiffSprite(image_line[l]);
+            selected_palette = preferred_palette;
+            for(i=0;i<4;i++){
+                if(i==preferred_palette) continue;
+                current_diff = pals.p[i].colorDiffSprite(image_line[l]);
+                if(current_diff < min_diff){
+                    min_diff = current_diff;
+                    selected_palette = i;
                 }
             }
-            selected_color = pals.p[selected_palette].bestColor(image_line[l]);
-            target_candidates= new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y));
 
+            selected_color = pals.p[selected_palette].bestSpriteColor(image_line[l]);
+            //target_candidates= new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y),Qt::IntersectsItemBoundingRect);
+            target_candidates = itemsAtPos(QPointF(scene_coordinate_x,scene_coordinate_y));
+            masks.clear();
             for(i=0;i<target_candidates.size();i++){
+                if(target_candidates.at(i) == to_paste) continue;
                 if(((spriteEditItem *)(target_candidates.at(i)))->getID() == 0xff){
                     target = (spriteEditItem *)(target_candidates.at(i));
                     break;
@@ -1853,6 +1955,10 @@ void editSpriteDialog::paste(QMouseEvent * event){
             y = scene_coordinate_y;
             x -= target->offset().x();
             y -= target->offset().y();
+            if((y>=16 || x >= 8) || (y < 0 || x < 0)){
+                y=0;
+                x=0;
+            }
             arrangement_target = target->getID();
             if(arrangement_target == 0xff){
                 if(selected_color){ //If we aren't using the universal bg color, create a new tile to match the color.  Else do nothing
@@ -1868,6 +1974,10 @@ void editSpriteDialog::paste(QMouseEvent * event){
                     }
                     else{
                         CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+                    }
+                    if((y>=16 || x >= 8) || (y < 0 || x < 0)){
+                        y=0;
+                        x=0;
                     }
                     CHR_target->shared = false;
                     CHR_target->t[y] = (CHR_target->t[y]&(0xff ^ (1<<(7-x)))) | ((selected_color&1)<<(7-x));
@@ -1897,8 +2007,8 @@ void editSpriteDialog::paste(QMouseEvent * event){
                     else{
                         CHR_target = edit_arrangement.tiles.at(temp_target<<1);
                     }
-                    CHR_target->t[temp_y] = CHR_target->t[temp_y]&(0xff ^ (1<<(7-temp_x)));
-                    CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x)));
+                    CHR_target->t[temp_y] = CHR_target->t[temp_y]&(0xff ^ (1<<(7-temp_x))); //problem with the mask****
+                    CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x))); //erases pixel next to it
                     CHR_target->checksum = 0;
                     for(int j=0;j<0x10;j++){
                         CHR_target->checksum += CHR_target->t[i];
@@ -1979,4 +2089,79 @@ void editSpriteDialog::paste(QMouseEvent * event){
     drawBackground();
     drawArrangement();
     new_scene.removeItem(to_paste);
+}
+
+QList<QGraphicsItem *> editSpriteDialog::itemsAtPos(const QPointF & pos){
+    QList<QGraphicsItem *> result;
+    QList<QGraphicsItem *> temp_list;
+    unsigned int i,j;
+
+    for(i=0;i<image.size();i++){
+        if((pos.x() >= ((spriteEditItem *)image.at(i))->offset().x()) && (pos.x() < (((spriteEditItem *)image.at(i))->offset().x() + 8))){
+            if((pos.y() >= ((spriteEditItem *)image.at(i))->offset().y()) && (pos.y() < (((spriteEditItem *)image.at(i))->offset().y() + 16))){
+                int8_t matching_position = -1;
+                for(j=0;j<result.size();j++){
+                    if(((spriteEditItem *)result.at(j))->zValue() < ((spriteEditItem *)image.at(i))->zValue()) break;
+                }
+                result.insert(j,image.at(i));
+            }
+        }
+    }
+    result.append(overlay_item);
+    return result;
+}
+
+void editSpriteDialog::showContextMenu(const QPoint &pos){
+    QPoint global_pos = arrangement_view->mapToGlobal(pos);
+
+    QMenu context_menu;
+    context_menu.addAction("Cut (Ctrl + X");
+    context_menu.addAction("Copy (Ctrl + C",this,SLOT(copy_slot()));
+    context_menu.addAction("Paste (Ctrl + V",this,SLOT(paste_slot()));
+    context_menu.addAction("Delete (Ctrl + X");
+    context_menu.addAction("Move Tile (Ctrl + M");
+    QAction * selected_item = context_menu.exec(global_pos);
+    if(selected_item){
+
+    }
+    else{
+        //nothing was chosen
+    }
+
+}
+
+void editSpriteDialog::accept(){
+    unsigned int i;
+    for(i=0;i<image.size();i++){
+        if(((spriteEditItem *)image.at(i))->getTileType()){
+            CHR_pages[edit_arrangement.gfx_page].t[((spriteEditItem *)image.at(i))->getTileID() & 0xFE] = \
+                    sprite_page.t[((spriteEditItem *)image.at(i))->getTileID() & 0xFE];
+            CHR_pages[edit_arrangement.gfx_page].t[((spriteEditItem *)image.at(i))->getTileID() | 0x01] = \
+                    sprite_page.t[((spriteEditItem *)image.at(i))->getTileID() | 0x01];
+            edit_arrangement.tiles.at(i<<1) = &CHR_pages[edit_arrangement.gfx_page].t[edit_arrangement.tiles.at(i<<1)->id];
+            edit_arrangement.tiles.at((i<<1)+1) = &CHR_pages[edit_arrangement.gfx_page].t[edit_arrangement.tiles.at((i<<1)+1)->id];
+        }
+        else{
+            CHR_pages[edit_arrangement.bg_gfx_page].t[((spriteEditItem *)image.at(i))->getTileID() & 0xFE] = \
+                    bg_page.t[((spriteEditItem *)image.at(i))->getTileID() & 0xFE];
+            CHR_pages[edit_arrangement.bg_gfx_page].t[((spriteEditItem *)image.at(i))->getTileID() | 0x01] = \
+                    bg_page.t[((spriteEditItem *)image.at(i))->getTileID() | 0x01];
+            edit_arrangement.tiles.at(i<<1) = &CHR_pages[edit_arrangement.bg_gfx_page].t[edit_arrangement.tiles.at(i<<1)->id];
+            edit_arrangement.tiles.at((i<<1)+1) = &CHR_pages[edit_arrangement.bg_gfx_page].t[edit_arrangement.tiles.at((i<<1)+1)->id];
+        }
+
+    }
+    if(ui->comboBox->currentIndex() < (ui->comboBox->count() - 1)){
+        *sorted_list[ui->comboBox->currentIndex()] = edit_arrangement;
+        sorted_list[ui->comboBox->currentIndex()]->modified = false;
+    }
+    else{
+        sprites[num_sprites] = new sprite;
+        *sprites[num_sprites] = edit_arrangement;
+        sprites[num_sprites]->references = 0;
+        sprites[num_sprites]->id = num_sprites;
+        sprites[num_sprites]->modified = false;
+        num_sprites++;
+    }
+    QDialog::accept();
 }

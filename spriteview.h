@@ -18,6 +18,7 @@ signals:
     void tile_pressed(QMouseEvent *);
     void tile_released();
     void hover_event(QMouseEvent *);
+    void customContextMenuRequested(const QPoint &);
 };
 
 #endif // SPRITEVIEW_H

@@ -135,7 +135,9 @@ typedef struct NESpalette : ng_type{
     bool operator == (const NESpalette &);
     std::string write();
     uint32_t colorDiff(QRgb);
+    uint32_t colorDiffSprite(QRgb);
     uint8_t bestColor(QRgb);
+    uint8_t bestSpriteColor(QRgb);
     bool sameColors(const NESpalette &);
 } NESpalette;
 
