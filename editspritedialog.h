@@ -35,6 +35,8 @@ private slots:
     void sprite_chr_selection_noclick();
     void copy_slot();
     void paste_slot();
+    void delete_slot();
+    void cut_slot();
     void undo_slot();
     void redo_slot();
     void clipboard_changed();
@@ -118,10 +120,12 @@ private:
     bool paste_ready;
     chrItem * bg_chr_array[0x100];
     chrItem * sprite_chr_array[0x100];
+    QShortcut * cut_shortcut;
     QShortcut * copy_shortcut;
     QShortcut * paste_shortcut;
     QShortcut * undo_shortcut;
     QShortcut * redo_shortcut;
+    QShortcut * delete_shortcut;
     QClipboard * clipboard;
     QList <QWidget *> widget_list;
     std::vector <spriteEditItem *> image;

@@ -155,14 +155,18 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     }
     ui->clipboard_view->setScene(&clipboard_scene);
     last_focus = -1;
+    cut_shortcut = new QShortcut(QKeySequence(QString("Ctrl+X")),this);
     copy_shortcut = new QShortcut(QKeySequence(QString("Ctrl+C")),this);
     paste_shortcut = new QShortcut(QKeySequence(QString("Ctrl+V")),this);
     undo_shortcut = new QShortcut(QKeySequence(QString("Ctrl+Z")),this);
     redo_shortcut = new QShortcut(QKeySequence(QString("Ctrl+Shift+Z")),this);
+    delete_shortcut = new QShortcut(QKeySequence(QString("Delete")),this);
+    connect(cut_shortcut,SIGNAL(activated()),this,SLOT(cut_slot()));
     connect(copy_shortcut,SIGNAL(activated()),this,SLOT(copy_slot()));
     connect(paste_shortcut,SIGNAL(activated()),this,SLOT(paste_slot()));
     connect(undo_shortcut,SIGNAL(activated()),this,SLOT(undo_slot()));
     connect(redo_shortcut,SIGNAL(activated()),this,SLOT(redo_slot()));
+    connect(delete_shortcut,SIGNAL(activated()),this,SLOT(delete_slot()));
     clipboard = QApplication::clipboard();
     clipboard_image = clipboard->image();
     clipboard_item = new QGraphicsPixmapItem(clipboard->pixmap());
@@ -417,6 +421,8 @@ void editSpriteDialog::copy_slot(){
         spriteEditItem * current_tile;
         min_x = 0xffff;
         min_y = 0xffff;
+        max_x = 0;
+        max_y = 0;
         if(!image.size()) return;
         for(i=0;i<image.size();i++){
             current_tile = image.at(i);
@@ -519,6 +525,11 @@ void editSpriteDialog::paste_slot(){
 
 void editSpriteDialog::undo_slot(){
     arrangement_released();
+    if(paste_ready){
+        new_scene.removeItem(to_paste);
+        paste_ready = false;
+        return;
+    }
     if(undo_position != undo_min){
         if(edit_progress){
             bg_page = undo_actions[undo_position].old_bg;
@@ -883,18 +894,20 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
             target = (spriteEditItem *)(target_candidates.at(i));
             break;
         }
-        else if(((spriteEditItem *)(target_candidates.at(i)))->getAttribs() == selected_palette){
+        else if(selected_color && (((spriteEditItem *)(target_candidates.at(i)))->getAttribs() == selected_palette)){
             target = (spriteEditItem *)(target_candidates.at(i));
             break;
         }
         else{
-            int j;
-            for(j=0;j<4;j++){
-                if(pals.p[selected_palette].nes_colors[selected_color] == pals.p[((spriteEditItem *)(target_candidates.at(i)))->getAttribs()].nes_colors[j]) break;
-            }
-            if(j<4){
-                target = (spriteEditItem *)(target_candidates.at(i));
-                break;
+            if(selected_color){
+                int j;
+                for(j=0;j<4;j++){
+                    if(pals.p[selected_palette].nes_colors[selected_color] == pals.p[((spriteEditItem *)(target_candidates.at(i)))->getAttribs()].nes_colors[j]) break;
+                }
+                if(j<4){
+                    target = (spriteEditItem *)(target_candidates.at(i));
+                    break;
+                }
             }
             //**********put masks stuff here.
             //don't draw on the current tile.  Allow the mouse click to propagate to the tile beneath
@@ -935,37 +948,36 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
         undo_actions[undo_position].old_sprites = sprite_page;
     }
 
-    if(arrangement_target == 0xff){
-        if(selected_color){ //If we aren't using the universal bg color, create a new tile to match the color.  Else do nothing
-            //create new tile here
-            target = allocateNewTile(scene_coordinate_x,scene_coordinate_y);
-            if(!target) return;
-            x = scene_coordinate_x - target->offset().x();
-            y = scene_coordinate_y - target->offset().y();
-            arrangement_target = target->getID();
-            if(y>=8){
-                y-=8;
-                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-            }
-            else{
-                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-            }
-            CHR_target->shared = false;
-            CHR_target->t[y] = (CHR_target->t[y]&(0xff ^ (1<<(7-x)))) | ((selected_color&1)<<(7-x));
-            CHR_target->t[y+8] = (CHR_target->t[y + 8]&(0xff ^ (1<<(7-x)))) | (((selected_color&2)>>1)<<(7-x));
-            CHR_target->checksum = 0;
-            for(i=0;i<0x10;i++){
-                CHR_target->checksum += CHR_target->t[i];
-            }
-            edit_arrangement.modified = true;
-            undo_actions[undo_position].new_arrangement = edit_arrangement;
-            undo_actions[undo_position].new_bg = bg_page;
-            undo_actions[undo_position].new_sprites = sprite_page;
-            updateCHRMask();
-            drawCHR();
-            drawBackground();
-            drawArrangement();
+    if(selected_color && (arrangement_target == 0xff)){
+        //If we aren't using the universal bg color, create a new tile to match the color
+        //create new tile here
+        target = allocateNewTile(scene_coordinate_x,scene_coordinate_y);
+        if(!target) return;
+        x = scene_coordinate_x - target->offset().x();
+        y = scene_coordinate_y - target->offset().y();
+        arrangement_target = target->getID();
+        if(y>=8){
+            y-=8;
+            CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
         }
+        else{
+            CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+        }
+        CHR_target->shared = false;
+        CHR_target->t[y] = (CHR_target->t[y]&(0xff ^ (1<<(7-x)))) | ((selected_color&1)<<(7-x));
+        CHR_target->t[y+8] = (CHR_target->t[y + 8]&(0xff ^ (1<<(7-x)))) | (((selected_color&2)>>1)<<(7-x));
+        CHR_target->checksum = 0;
+        for(i=0;i<0x10;i++){
+            CHR_target->checksum += CHR_target->t[i];
+        }
+        edit_arrangement.modified = true;
+        undo_actions[undo_position].new_arrangement = edit_arrangement;
+        undo_actions[undo_position].new_bg = bg_page;
+        undo_actions[undo_position].new_sprites = sprite_page;
+        updateCHRMask();
+        drawCHR();
+        drawBackground();
+        drawArrangement();
         return;
     }
     for(i=0;i<masks.size();i++){ //Check if the pixel is masked by another tile
@@ -994,6 +1006,17 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
             }
         }
     }
+    if(!selected_color){
+        edit_arrangement.modified = true;
+        undo_actions[undo_position].new_arrangement = edit_arrangement;
+        undo_actions[undo_position].new_bg = bg_page;
+        undo_actions[undo_position].new_sprites = sprite_page;
+        updateCHRMask();
+        drawCHR();
+        drawBackground();
+        drawArrangement();
+        return;
+    }
     uint8_t pixel_color = 0xff;
     if(target->getAttribs() == selected_palette){
         pixel_color = selected_color;
@@ -1008,7 +1031,32 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
         //use the matching color in the other palette instead of the selected color in selected palette
         pixel_color = i;
     }
-    if(target->getAttribs() == selected_palette){
+    if(y>=8){
+        y-=8;
+        CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
+    }
+    else{
+        CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+    }
+    NEStile temp_tile;
+    if(target->getTileType()){
+        temp_tile = sprite_page.t[CHR_target->id];
+    }
+    else{
+        temp_tile = bg_page.t[CHR_target->id];
+    }
+    temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
+    temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
+    temp_tile.checksum = 0;
+    for(i=0;i<0x10;i++){
+        temp_tile.checksum += temp_tile.t[i];
+    }
+    uint16_t tile_analysis = analyzeTile(CHR_target,x,y) & 3;
+    if(tile_analysis){
+        arrangement_target = target->getID();
+        if(!duplicateTile(arrangement_target)) return;  //attempt to allocate new tile
+        y = scene_coordinate_y;
+        y -= target->offset().y();
         if(y>=8){
             y-=8;
             CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
@@ -1016,43 +1064,17 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
         else{
             CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
         }
-        NEStile temp_tile;
-        if(target->getTileType()){
-            temp_tile = sprite_page.t[CHR_target->id];
-        }
-        else{
-            temp_tile = bg_page.t[CHR_target->id];
-        }
-        temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
-        temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
-        temp_tile.checksum = 0;
-        for(i=0;i<0x10;i++){
-            temp_tile.checksum += temp_tile.t[i];
-        }
-        uint16_t tile_analysis = analyzeTile(CHR_target,x,y) & 3;
-        if(tile_analysis){
-            arrangement_target = target->getID();
-            if(!duplicateTile(arrangement_target)) return;  //attempt to allocate new tile
-            y = scene_coordinate_y;
-            y -= target->offset().y();
-            if(y>=8){
-                y-=8;
-                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-            }
-            else{
-                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-            }
-        }
-        *CHR_target = temp_tile;
-        edit_arrangement.modified = true;
-        undo_actions[undo_position].new_arrangement = edit_arrangement;
-        undo_actions[undo_position].new_bg = bg_page;
-        undo_actions[undo_position].new_sprites = sprite_page;
-        updateCHRMask();
-        drawCHR();
-        drawBackground();
-        drawArrangement();
     }
+    *CHR_target = temp_tile;
+    edit_arrangement.modified = true;
+    undo_actions[undo_position].new_arrangement = edit_arrangement;
+    undo_actions[undo_position].new_bg = bg_page;
+    undo_actions[undo_position].new_sprites = sprite_page;
+    updateCHRMask();
+    drawCHR();
+    drawBackground();
+    drawArrangement();
+
 }
 
 void editSpriteDialog::arrangement_released(){
@@ -2030,7 +2052,33 @@ void editSpriteDialog::paste(QMouseEvent * event){
                 //use the matching color in the other palette instead of the selected color in selected palette
                 pixel_color = i;
             }
-            if(target->getAttribs() == selected_palette){
+            //if(target->getAttribs() == selected_palette){
+            if(y>=8){
+                y-=8;
+                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
+            }
+            else{
+                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+            }
+            NEStile temp_tile;
+            if(target->getTileType()){
+                temp_tile = sprite_page.t[CHR_target->id];
+            }
+            else{
+                temp_tile = bg_page.t[CHR_target->id];
+            }
+            temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
+            temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
+            temp_tile.checksum = 0;
+            for(i=0;i<0x10;i++){
+                temp_tile.checksum += temp_tile.t[i];
+            }
+            uint16_t tile_analysis = analyzeTile(CHR_target,x,y) & 3;
+            if(tile_analysis){
+                arrangement_target = target->getID();
+                if(!duplicateTile(arrangement_target)) continue;  //attempt to allocate new tile
+                y = scene_coordinate_y;
+                y -= target->offset().y();
                 if(y>=8){
                     y-=8;
                     CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
@@ -2038,36 +2086,9 @@ void editSpriteDialog::paste(QMouseEvent * event){
                 else{
                     CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
                 }
-                NEStile temp_tile;
-                if(target->getTileType()){
-                    temp_tile = sprite_page.t[CHR_target->id];
-                }
-                else{
-                    temp_tile = bg_page.t[CHR_target->id];
-                }
-                temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
-                temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
-                temp_tile.checksum = 0;
-                for(i=0;i<0x10;i++){
-                    temp_tile.checksum += temp_tile.t[i];
-                }
-                uint16_t tile_analysis = analyzeTile(CHR_target,x,y) & 3;
-                if(tile_analysis){
-                    arrangement_target = target->getID();
-                    if(!duplicateTile(arrangement_target)) continue;  //attempt to allocate new tile
-                    y = scene_coordinate_y;
-                    y -= target->offset().y();
-                    if(y>=8){
-                        y-=8;
-                        CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-                    }
-                    else{
-                        CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-                    }
-                }
-                *CHR_target = temp_tile;
-
             }
+            *CHR_target = temp_tile;
+            //}
         }
     }
     edit_arrangement.modified = true;
@@ -2093,13 +2114,11 @@ void editSpriteDialog::paste(QMouseEvent * event){
 
 QList<QGraphicsItem *> editSpriteDialog::itemsAtPos(const QPointF & pos){
     QList<QGraphicsItem *> result;
-    QList<QGraphicsItem *> temp_list;
     unsigned int i,j;
 
     for(i=0;i<image.size();i++){
         if((pos.x() >= ((spriteEditItem *)image.at(i))->offset().x()) && (pos.x() < (((spriteEditItem *)image.at(i))->offset().x() + 8))){
             if((pos.y() >= ((spriteEditItem *)image.at(i))->offset().y()) && (pos.y() < (((spriteEditItem *)image.at(i))->offset().y() + 16))){
-                int8_t matching_position = -1;
                 for(j=0;j<result.size();j++){
                     if(((spriteEditItem *)result.at(j))->zValue() < ((spriteEditItem *)image.at(i))->zValue()) break;
                 }
@@ -2115,11 +2134,10 @@ void editSpriteDialog::showContextMenu(const QPoint &pos){
     QPoint global_pos = arrangement_view->mapToGlobal(pos);
 
     QMenu context_menu;
-    context_menu.addAction("Cut (Ctrl + X");
-    context_menu.addAction("Copy (Ctrl + C",this,SLOT(copy_slot()));
-    context_menu.addAction("Paste (Ctrl + V",this,SLOT(paste_slot()));
-    context_menu.addAction("Delete (Ctrl + X");
-    context_menu.addAction("Move Tile (Ctrl + M");
+    context_menu.addAction("Cut (Ctrl + X)",this,SLOT(cut_slot()));
+    context_menu.addAction("Copy (Ctrl + C)",this,SLOT(copy_slot()));
+    context_menu.addAction("Paste (Ctrl + V)",this,SLOT(paste_slot()));
+    context_menu.addAction("Delete",this,SLOT(delete_slot()));
     QAction * selected_item = context_menu.exec(global_pos);
     if(selected_item){
 
@@ -2164,4 +2182,68 @@ void editSpriteDialog::accept(){
         num_sprites++;
     }
     QDialog::accept();
+}
+
+void editSpriteDialog::delete_slot(){
+    arrangement_released();
+    if(last_focus == 1){
+        undo_max = undo_position;
+        //Setup restore point in the event of undo
+        undo_actions[undo_position].old_arrangement = edit_arrangement;
+        undo_actions[undo_position].old_bg = bg_page;
+        undo_actions[undo_position].old_sprites = sprite_page;
+        unsigned int i,j;
+        std::string temp_arrangement = "";
+        std::vector<NEStile *>temp_tiles;
+        uint8_t write_position;
+        uint8_t tiles_in_column;
+        uint8_t temp_tiles_in_column;
+        uint8_t tile_number = 0;
+        uint8_t column_position;
+        bool at_least_one_tile;
+        for(i=0;i<edit_arrangement.arrangement.length();){
+            write_position = temp_arrangement.length();
+            column_position = edit_arrangement.arrangement[i++];
+            tiles_in_column = edit_arrangement.arrangement[i++];
+            temp_tiles_in_column = tiles_in_column;
+            at_least_one_tile = false;
+            for(j=0;j<tiles_in_column;j++){
+                if(image.at(tile_number>>1)->isSelected()){
+                    temp_tiles_in_column--;
+                    i+=2;
+                    tile_number+=2;
+                }
+                else{
+                    if(!at_least_one_tile){
+                        temp_arrangement+=column_position;
+                        temp_arrangement+=tiles_in_column;
+                        at_least_one_tile = true;
+                    }
+                    temp_arrangement+=edit_arrangement.arrangement[i++];
+                    temp_arrangement+=edit_arrangement.arrangement[i++];
+                    temp_tiles.push_back(edit_arrangement.tiles.at(tile_number++));
+                    temp_tiles.push_back(edit_arrangement.tiles.at(tile_number++));
+                }
+            }
+            if(temp_tiles_in_column){
+                temp_arrangement[write_position+1] = temp_tiles_in_column;
+            }
+        }
+        edit_arrangement.arrangement = temp_arrangement;
+        edit_arrangement.tiles = temp_tiles;
+        reparseImage();
+        edit_arrangement.modified = true;
+        undo_actions[undo_position].new_arrangement = edit_arrangement;
+        undo_actions[undo_position].new_bg = bg_page;
+        undo_actions[undo_position].new_sprites = sprite_page;
+        updateCHRMask();
+        drawCHR();
+        drawBackground();
+        drawArrangement();
+    }
+}
+
+void editSpriteDialog::cut_slot(){
+    copy_slot();
+    delete_slot();
 }
