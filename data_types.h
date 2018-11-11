@@ -167,6 +167,8 @@ typedef struct sprite : ng_type{
     std::string write();
     palette_set bestPalette();
     void generateImage();
+    uint8_t locateTileInArrangement(uint8_t);
+    uint8_t locateColumnInArrangement(uint8_t);
 }sprite;
 
 typedef struct metatile : ng_type{

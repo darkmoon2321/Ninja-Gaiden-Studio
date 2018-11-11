@@ -1527,3 +1527,36 @@ bool NESpalette::sameColors(const NESpalette & to_test){
     }
     return true;
 }
+
+uint8_t sprite::locateTileInArrangement(uint8_t to_find){
+    uint8_t i,j;
+    uint8_t tile_count = 0;
+    uint8_t tiles_in_column;
+    for(i=0;i<arrangement.length();){
+        i++;
+        tiles_in_column = arrangement[i++];
+        for(j=0;j<tiles_in_column;j++){
+            if(tile_count == to_find) return i;
+            tile_count++;
+            i+=2;
+        }
+    }
+    return 0xff;
+}
+
+uint8_t sprite::locateColumnInArrangement(uint8_t to_find){
+    uint8_t i,j,result;
+    uint8_t tile_count = 0;
+    uint8_t tiles_in_column;
+    for(i=0;i<arrangement.length();){
+        result = i;
+        i++;
+        tiles_in_column = arrangement[i++];
+        for(j=0;j<tiles_in_column;j++){
+            if(tile_count == to_find) return result;
+            tile_count++;
+            i+=2;
+        }
+    }
+    return 0xff;
+}
