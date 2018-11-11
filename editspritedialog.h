@@ -79,8 +79,9 @@ private:
     };
 
     undo_data undo_actions[UNDO_SIZE];
-    CHR_page sprite_page;
-    CHR_page bg_page;
+    CHR_page * sprite_page;
+    CHR_page * bg_page;
+    CHR_page backup_page;
     palette_set pals;
     int undo_position;
     int undo_max;
@@ -144,6 +145,9 @@ private:
     void paste(QMouseEvent *);
     QList<QGraphicsItem *> itemsAtPos(const QPointF & pos);
     void accept();
+    void compactQuick();
+    void compactSlow();
+    uint16_t tileCompareQuick(NEStile[2],uint8_t,bool);
 };
 
 #endif // EDITSPRITEDIALOG_H
