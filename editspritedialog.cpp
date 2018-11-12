@@ -1012,7 +1012,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
             CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x)));
             CHR_target->checksum = 0;
             for(int j=0;j<0x10;j++){
-                CHR_target->checksum += CHR_target->t[i];
+                CHR_target->checksum += CHR_target->t[j];
             }
         }
     }
@@ -1696,6 +1696,10 @@ void editSpriteDialog::reparseImage(){
     }
 
     uint8_t tile_count = 0;
+    for(i=0;i<0x100;i++){
+        sprite_page->sprite_used[i] = false;
+        bg_page->bg_used[i] = false;
+    }
     for(i=0;i<edit_arrangement.arrangement.length();){
         if(edit_arrangement.arrangement[i++]&0x80) break;
         uint8_t tiles_in_column = edit_arrangement.arrangement[i++];
@@ -1703,10 +1707,14 @@ void editSpriteDialog::reparseImage(){
             if(edit_arrangement.arrangement[i]&0x1){
                 edit_arrangement.tiles.at(tile_count) = &(sprite_page->t[edit_arrangement.tiles.at(tile_count)->id]);
                 edit_arrangement.tiles.at(tile_count+1) = &(sprite_page->t[edit_arrangement.tiles.at(tile_count+1)->id]);
+                sprite_page->sprite_used[edit_arrangement.tiles.at(tile_count)->id] = true;
+                sprite_page->sprite_used[edit_arrangement.tiles.at(tile_count+1)->id] = true;
             }
             else{
                 edit_arrangement.tiles.at(tile_count) = &(bg_page->t[edit_arrangement.tiles.at(tile_count)->id]);
                 edit_arrangement.tiles.at(tile_count+1) = &(bg_page->t[edit_arrangement.tiles.at(tile_count+1)->id]);
+                bg_page->sprite_used[edit_arrangement.tiles.at(tile_count)->id] = true;
+                bg_page->sprite_used[edit_arrangement.tiles.at(tile_count+1)->id] = true;
             }
             image.at(tile_count>>1)->setTileID((edit_arrangement.arrangement[i]&0x1)| ((edit_arrangement.tiles.at(tile_count)->id)&0xFE));
             image.at(tile_count>>1)->setAttribs((edit_arrangement.arrangement[i+1]&0x6)>>1);
@@ -2044,7 +2052,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
                     CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x))); //erases pixel next to it
                     CHR_target->checksum = 0;
                     for(int j=0;j<0x10;j++){
-                        CHR_target->checksum += CHR_target->t[i];
+                        CHR_target->checksum += CHR_target->t[j];
                     }
                 }
             }
@@ -2102,7 +2110,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
             //}
         }
     }
-    compactQuick();
+    compactSlow();
     edit_arrangement.modified = true;
     undo_actions[undo_position].new_arrangement = edit_arrangement;
     undo_actions[undo_position].new_bg = *bg_page;
@@ -2162,6 +2170,8 @@ void editSpriteDialog::showContextMenu(const QPoint &pos){
 
 void editSpriteDialog::accept(){
     unsigned int i;
+
+    compactSlow();
     for(i=0;i<image.size();i++){
         if(((spriteEditItem *)image.at(i))->getTileType()){
             CHR_pages[edit_arrangement.gfx_page].t[((spriteEditItem *)image.at(i))->getTileID() & 0xFE] = \
@@ -2340,6 +2350,12 @@ void editSpriteDialog::compactQuick(){
             tile_count+=2;
         }
     }
+    for(i=0;i<edit_arrangement.tiles.size();i+=2){
+        if(!(edit_arrangement.tiles.at(i)->checksum) && !(edit_arrangement.tiles.at(i+1)->checksum)){
+            deleteTile(i>>1);
+            i=0;    //restart the loop
+        }
+    }
 }
 
 uint16_t editSpriteDialog::tileCompareQuick(NEStile to_test[2],uint8_t tile_id,bool is_sprite){
@@ -2472,6 +2488,19 @@ void editSpriteDialog::compactSlow(){
                 to_match_indices[j+8][k] = palette_indices[(tile_attribs<<2) + color_index];
             }
         }
+        //check if tile is completely masked or if only visible portion is transparent
+        for(j=0;j<16;j++){
+            for(k=0;k<8;k++){
+                if(!complete_mask[j][k] && to_match_indices[j][k]) break;
+            }
+            if(k<8) break;
+        }
+        if(j>=16){
+            deleteTile(i);  //eliminate fully masked/transparent tiles
+            continue;
+        }
+        if(!ui->checkBox_3->isChecked()) continue;
+
         //check sprite CHR page for matches.
         uint8_t temp_palette;
         flip_matched = false;
@@ -2612,4 +2641,35 @@ void editSpriteDialog::compactSlow(){
             image.at(i)->setAttribs(temp_palette);
         }
     }
+    reparseImage();
+}
+
+void editSpriteDialog::deleteTile(uint8_t tile_num){
+    unsigned int i,j;
+    std::string temp_arrangement = "";
+    std::vector<NEStile *>temp_tiles;
+    if(tile_num >= image.size()) return;
+
+    uint8_t column_position = edit_arrangement.locateColumnInArrangement(tile_num);
+    uint8_t tile_position = edit_arrangement.locateTileInArrangement(tile_num);
+    uint8_t tiles_in_column = edit_arrangement.arrangement[column_position + 1] - 1;
+
+    for(i=0;i<image.size();i++){
+        if(i==tile_num) continue;
+        temp_tiles.push_back(edit_arrangement.tiles.at(i<<1));
+        temp_tiles.push_back(edit_arrangement.tiles.at((i<<1)+1));
+    }
+    for(i=0;i<column_position;i++) temp_arrangement += edit_arrangement.arrangement[i];
+    if(tiles_in_column){
+        temp_arrangement += edit_arrangement.arrangement[i++];  //write the byte that determines column X position
+        temp_arrangement += tiles_in_column;
+        for(++i;i<tile_position;i++) temp_arrangement += edit_arrangement.arrangement[i];
+        i+=2;
+    }
+    else{
+        i+=4;
+    }
+    for(;i<edit_arrangement.arrangement.length();i++) temp_arrangement += edit_arrangement.arrangement[i];
+    edit_arrangement.arrangement = temp_arrangement;
+    edit_arrangement.tiles = temp_tiles;
 }

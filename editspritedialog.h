@@ -148,6 +148,7 @@ private:
     void compactQuick();
     void compactSlow();
     uint16_t tileCompareQuick(NEStile[2],uint8_t,bool);
+    void deleteTile(uint8_t);
 };
 
 #endif // EDITSPRITEDIALOG_H
