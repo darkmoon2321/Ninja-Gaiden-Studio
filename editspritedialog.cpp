@@ -1865,7 +1865,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
     uint8_t old_palette = selected_palette;
     uint8_t old_color = selected_color;
 
-    uint16_t min_diff = 0xffff;
+    uint32_t min_diff = 0xffff;
     uint16_t temp_diff;
     int8_t best_offset = -1;
     for(i=0;i<0x29;i++){
@@ -1916,205 +1916,214 @@ void editSpriteDialog::paste(QMouseEvent * event){
     pals.convertColors();
     QImage temp_image = clipboard_image;
 
-    for(k=0;k<temp_image.height();k++){
-        scene_coordinate_y = pixel_y + k;
-        image_line = (QRgb *) temp_image.scanLine(k);
-        for(l=0;l<temp_image.width();l++){
-            scene_coordinate_x = pixel_x + l;
-            uint32_t min_diff = 0xffffffff;
-            uint32_t current_diff;
-            if(!(k&15) && !(l&7)){   //at every new tile boundary we need to identify a preferred palette
-                compactQuick(); //also clean up duplicate tiles at each tile boundary
-                QRgb * tile_test_line;
-                 for(i=0;i<4;i++){
-                     current_diff = 0;
-                     for(int m=0;m<16;m++){
-                        if((k+m) >= temp_image.height()) break;
-                        tile_test_line = (QRgb *)temp_image.scanLine(k+m);
-                        for(int n=0;n<8;n++){
-                            if((n+l) >= temp_image.width()) break;
-                            current_diff += pals.p[i].colorDiffSprite(tile_test_line[n+l]);
-                        }
-                     }
-                     if(current_diff < min_diff){
-                         min_diff = current_diff;
-                         preferred_palette = i;
-                     }
-                 }
-            }
-            if(QColor::fromRgba(image_line[l]).alpha()!=0xff) continue; //don't attempt to draw blank pixels
-            min_diff = pals.p[preferred_palette].colorDiffSprite(image_line[l]);
-            selected_palette = preferred_palette;
-            for(i=0;i<4;i++){
-                if(i==preferred_palette) continue;
-                current_diff = pals.p[i].colorDiffSprite(image_line[l]);
-                if(current_diff < min_diff){
-                    min_diff = current_diff;
-                    selected_palette = i;
-                }
-            }
+    uint8_t tile_width,tile_height;
+    uint8_t tile_width_max = (temp_image.width()>>3) + ((temp_image.width()&0x7)? 1 : 0);
+    uint8_t tile_height_max = (temp_image.height()>>4) + ((temp_image.height()&0xF)? 1 : 0);
+    uint32_t current_diff;
 
-            selected_color = pals.p[selected_palette].bestSpriteColor(image_line[l]);
-            //target_candidates= new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y),Qt::IntersectsItemBoundingRect);
-            target_candidates = itemsAtPos(QPointF(scene_coordinate_x,scene_coordinate_y));
-            masks.clear();
-            for(i=0;i<target_candidates.size();i++){
-                if(target_candidates.at(i) == to_paste) continue;
-                if(((spriteEditItem *)(target_candidates.at(i)))->getID() == 0xff){
-                    target = (spriteEditItem *)(target_candidates.at(i));
-                    break;
-                }
-                else if(((spriteEditItem *)(target_candidates.at(i)))->getAttribs() == selected_palette){
-                    target = (spriteEditItem *)(target_candidates.at(i));
-                    break;
-                }
-                else{
-                    int j;
-                    for(j=0;j<4;j++){
-                        if(pals.p[selected_palette].nes_colors[selected_color] == pals.p[((spriteEditItem *)(target_candidates.at(i)))->getAttribs()].nes_colors[j]) break;
+    for(tile_height = 0;tile_height < tile_height_max;tile_height++){
+        for(tile_width = 0;tile_width < tile_width_max;tile_width++){
+            compactQuick(); //clean up duplicate tiles at each tile boundary
+            //at every new tile boundary we need to identify a preferred palette
+            QRgb * tile_test_line;
+             for(i=0;i<4;i++){
+                 min_diff = 0xffffffff;
+                 current_diff = 0;
+                 for(int m=0;m<16;m++){
+                    if(((tile_height<<4)+m) >= temp_image.height()) break;
+                    tile_test_line = (QRgb *)temp_image.scanLine((tile_height<<4)+m);
+                    for(int n=0;n<8;n++){
+                        if((n+(tile_width<<3)) >= temp_image.width()) break;
+                        if(!QColor::fromRgba(tile_test_line[n+(tile_width<<3)]).alpha()) continue;
+                        current_diff += pals.p[i].colorDiffSprite(tile_test_line[n+(tile_width<<3)]);
                     }
-                    if(j<4){
-                        target = (spriteEditItem *)(target_candidates.at(i));
-                        break;
+                 }
+                 if(current_diff < min_diff){
+                     min_diff = current_diff;
+                     preferred_palette = i;
+                 }
+             }
+            for(k=0;k<16;k++){
+                scene_coordinate_y = pixel_y + (tile_height<<4) + k;
+                if(((tile_height<<4) + k) >= temp_image.height()) break;
+                image_line = (QRgb *) temp_image.scanLine((tile_height<<4) + k);
+                for(l=0;l<8;l++){
+                    scene_coordinate_x = pixel_x + (tile_width<<3) + l;
+                    if(((tile_width<<3) + l) >= temp_image.width()) break;
+                    if(!QColor::fromRgba(image_line[(tile_width<<3) + l]).alpha()) continue; //don't attempt to draw blank pixels
+                    min_diff = pals.p[preferred_palette].colorDiffSprite(image_line[(tile_width<<3) + l]);
+                    selected_palette = preferred_palette;
+                    for(i=0;i<4;i++){
+                        if(i==preferred_palette) continue;
+                        current_diff = pals.p[i].colorDiffSprite(image_line[(tile_width<<3) + l]);
+                        if(current_diff < min_diff){
+                            min_diff = current_diff;
+                            selected_palette = i;
+                        }
                     }
-                    //don't draw on the current tile.  Allow the mouse click to propagate to the tile beneath
-                    mask_pixels current_mask;
+                    selected_color = pals.p[selected_palette].bestSpriteColor(image_line[(tile_width<<3) + l]);
+                    //target_candidates= new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y),Qt::IntersectsItemBoundingRect);
+                    target_candidates = itemsAtPos(QPointF(scene_coordinate_x,scene_coordinate_y));
+                    masks.clear();
+                    for(i=0;i<target_candidates.size();i++){
+                        if(target_candidates.at(i) == to_paste) continue;
+                        if(((spriteEditItem *)(target_candidates.at(i)))->getID() == 0xff){
+                            target = (spriteEditItem *)(target_candidates.at(i));
+                            break;
+                        }
+                        else if(((spriteEditItem *)(target_candidates.at(i)))->getAttribs() == selected_palette){
+                            target = (spriteEditItem *)(target_candidates.at(i));
+                            break;
+                        }
+                        else{
+                            int j;
+                            for(j=0;j<4;j++){
+                                if(pals.p[selected_palette].nes_colors[selected_color] == pals.p[((spriteEditItem *)(target_candidates.at(i)))->getAttribs()].nes_colors[j]) break;
+                            }
+                            if(j<4){
+                                target = (spriteEditItem *)(target_candidates.at(i));
+                                break;
+                            }
+                            //don't draw on the current tile.  Allow the mouse click to propagate to the tile beneath
+                            mask_pixels current_mask;
+                            x = scene_coordinate_x;
+                            y = scene_coordinate_y;
+                            x -= ((spriteEditItem *)(target_candidates.at(i)))->offset().x();
+                            y -= ((spriteEditItem *)(target_candidates.at(i)))->offset().y();
+                            arrangement_target = ((spriteEditItem *)(target_candidates.at(i)))->getID();
+                            current_mask.arrangement_target = arrangement_target;
+                            current_mask.x = x;
+                            current_mask.y = y;
+                            if(y>=8){
+                                y-=8;
+                                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
+                            }
+                            else{
+                                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+                            }
+                            current_mask.analysis = analyzeTile(CHR_target,x,y);
+                            masks.push_back(current_mask);  //Create a stack of pixels currently drawn underneath the cursor.
+                        }
+                    }
+                    if(!target) continue;
                     x = scene_coordinate_x;
                     y = scene_coordinate_y;
-                    x -= ((spriteEditItem *)(target_candidates.at(i)))->offset().x();
-                    y -= ((spriteEditItem *)(target_candidates.at(i)))->offset().y();
-                    arrangement_target = ((spriteEditItem *)(target_candidates.at(i)))->getID();
-                    current_mask.arrangement_target = arrangement_target;
-                    current_mask.x = x;
-                    current_mask.y = y;
-                    if(y>=8){
-                        y-=8;
-                        CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-                    }
-                    else{
-                        CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-                    }
-                    current_mask.analysis = analyzeTile(CHR_target,x,y);
-                    masks.push_back(current_mask);  //Create a stack of pixels currently drawn underneath the cursor.
-                }
-            }
-            if(!target) continue;
-            x = scene_coordinate_x;
-            y = scene_coordinate_y;
-            x -= target->offset().x();
-            y -= target->offset().y();
-            if((y>=16 || x >= 8) || (y < 0 || x < 0)){
-                y=0;
-                x=0;
-            }
-            arrangement_target = target->getID();
-            if(arrangement_target == 0xff){
-                if(selected_color){ //If we aren't using the universal bg color, create a new tile to match the color.  Else do nothing
-                    //create new tile here
-                    target = allocateNewTile(scene_coordinate_x,scene_coordinate_y);
-                    if(!target) continue;
-                    x = scene_coordinate_x - target->offset().x();
-                    y = scene_coordinate_y - target->offset().y();
-                    arrangement_target = target->getID();
-                    if(y>=8){
-                        y-=8;
-                        CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-                    }
-                    else{
-                        CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-                    }
+                    x -= target->offset().x();
+                    y -= target->offset().y();
                     if((y>=16 || x >= 8) || (y < 0 || x < 0)){
                         y=0;
                         x=0;
                     }
-                    CHR_target->shared = false;
-                    CHR_target->t[y] = (CHR_target->t[y]&(0xff ^ (1<<(7-x)))) | ((selected_color&1)<<(7-x));
-                    CHR_target->t[y+8] = (CHR_target->t[y + 8]&(0xff ^ (1<<(7-x)))) | (((selected_color&2)>>1)<<(7-x));
-                    CHR_target->checksum = 0;
-                    for(i=0;i<0x10;i++){
-                        CHR_target->checksum += CHR_target->t[i];
+                    arrangement_target = target->getID();
+                    if(arrangement_target == 0xff){
+                        if(selected_color){ //If we aren't using the universal bg color, create a new tile to match the color.  Else do nothing
+                            //create new tile here
+                            target = allocateNewTile(scene_coordinate_x,scene_coordinate_y);
+                            if(!target) continue;
+                            x = scene_coordinate_x - target->offset().x();
+                            y = scene_coordinate_y - target->offset().y();
+                            arrangement_target = target->getID();
+                            if(y>=8){
+                                y-=8;
+                                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
+                            }
+                            else{
+                                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+                            }
+                            if((y>=16 || x >= 8) || (y < 0 || x < 0)){
+                                y=0;
+                                x=0;
+                            }
+                            CHR_target->shared = false;
+                            CHR_target->t[y] = (CHR_target->t[y]&(0xff ^ (1<<(7-x)))) | ((selected_color&1)<<(7-x));
+                            CHR_target->t[y+8] = (CHR_target->t[y + 8]&(0xff ^ (1<<(7-x)))) | (((selected_color&2)>>1)<<(7-x));
+                            CHR_target->checksum = 0;
+                            for(i=0;i<0x10;i++){
+                                CHR_target->checksum += CHR_target->t[i];
+                            }
+                        }
+                        continue;
                     }
-                }
-                continue;
-            }
-            for(i=0;i<masks.size();i++){ //Check if the pixel is masked by another tile
-                uint8_t temp_analysis = masks.at(i).analysis;
-                if(temp_analysis & 4){
-                    //attempt to erase the pixel(s) above and draw the color where needed
-                    uint8_t temp_x = masks.at(i).x;
-                    uint8_t temp_y = masks.at(i).y;
-                    uint8_t temp_target = masks.at(i).arrangement_target;
-                    if(temp_analysis&3){
-                        //****attempt to allocate new tile
-                        if(!duplicateTile(temp_target)) break;
+                    for(i=0;i<masks.size();i++){ //Check if the pixel is masked by another tile
+                        uint8_t temp_analysis = masks.at(i).analysis;
+                        if(temp_analysis & 4){
+                            //attempt to erase the pixel(s) above and draw the color where needed
+                            uint8_t temp_x = masks.at(i).x;
+                            uint8_t temp_y = masks.at(i).y;
+                            uint8_t temp_target = masks.at(i).arrangement_target;
+                            if(temp_analysis&3){
+                                //****attempt to allocate new tile
+                                if(!duplicateTile(temp_target)) break;
+                            }
+                            if(temp_y>=8){
+                                temp_y-=8;
+                                CHR_target = edit_arrangement.tiles.at((temp_target<<1) + 1);
+                            }
+                            else{
+                                CHR_target = edit_arrangement.tiles.at(temp_target<<1);
+                            }
+                            CHR_target->t[temp_y] = CHR_target->t[temp_y]&(0xff ^ (1<<(7-temp_x))); //problem with the mask****
+                            CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x))); //erases pixel next to it
+                            CHR_target->checksum = 0;
+                            for(int j=0;j<0x10;j++){
+                                CHR_target->checksum += CHR_target->t[j];
+                            }
+                        }
                     }
-                    if(temp_y>=8){
-                        temp_y-=8;
-                        CHR_target = edit_arrangement.tiles.at((temp_target<<1) + 1);
+                    if(i<masks.size()) continue;
+                    uint8_t pixel_color = 0xff;
+                    if(target->getAttribs() == selected_palette){
+                        pixel_color = selected_color;
                     }
                     else{
-                        CHR_target = edit_arrangement.tiles.at(temp_target<<1);
+                        for(i=0;i<4;i++){
+                            if(pals.p[selected_palette].nes_colors[selected_color] == pals.p[target->getAttribs()].nes_colors[i]) break;
+                        }
+                        if(i>=4){
+                            continue;    //exit.  We should never reach this point.
+                        }
+                        //use the matching color in the other palette instead of the selected color in selected palette
+                        pixel_color = i;
                     }
-                    CHR_target->t[temp_y] = CHR_target->t[temp_y]&(0xff ^ (1<<(7-temp_x))); //problem with the mask****
-                    CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x))); //erases pixel next to it
-                    CHR_target->checksum = 0;
-                    for(int j=0;j<0x10;j++){
-                        CHR_target->checksum += CHR_target->t[j];
+                    //if(target->getAttribs() == selected_palette){
+                    if(y>=8){
+                        y-=8;
+                        CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
                     }
+                    else{
+                        CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+                    }
+                    NEStile temp_tile;
+                    if(target->getTileType()){
+                        temp_tile = sprite_page->t[CHR_target->id];
+                    }
+                    else{
+                        temp_tile = bg_page->t[CHR_target->id];
+                    }
+                    temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
+                    temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
+                    temp_tile.checksum = 0;
+                    for(i=0;i<0x10;i++){
+                        temp_tile.checksum += temp_tile.t[i];
+                    }
+                    uint16_t tile_analysis = analyzeTile(CHR_target,x,y) & 3;
+                    if(tile_analysis){
+                        arrangement_target = target->getID();
+                        if(!duplicateTile(arrangement_target)) continue;  //attempt to allocate new tile
+                        y = scene_coordinate_y;
+                        y -= target->offset().y();
+                        if(y>=8){
+                            y-=8;
+                            CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
+                        }
+                        else{
+                            CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
+                        }
+                    }
+                    *CHR_target = temp_tile;
+                    //}
                 }
             }
-            if(i<masks.size()) continue;
-            uint8_t pixel_color = 0xff;
-            if(target->getAttribs() == selected_palette){
-                pixel_color = selected_color;
-            }
-            else{
-                for(i=0;i<4;i++){
-                    if(pals.p[selected_palette].nes_colors[selected_color] == pals.p[target->getAttribs()].nes_colors[i]) break;
-                }
-                if(i>=4){
-                    continue;    //exit.  We should never reach this point.
-                }
-                //use the matching color in the other palette instead of the selected color in selected palette
-                pixel_color = i;
-            }
-            //if(target->getAttribs() == selected_palette){
-            if(y>=8){
-                y-=8;
-                CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-            }
-            else{
-                CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-            }
-            NEStile temp_tile;
-            if(target->getTileType()){
-                temp_tile = sprite_page->t[CHR_target->id];
-            }
-            else{
-                temp_tile = bg_page->t[CHR_target->id];
-            }
-            temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
-            temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
-            temp_tile.checksum = 0;
-            for(i=0;i<0x10;i++){
-                temp_tile.checksum += temp_tile.t[i];
-            }
-            uint16_t tile_analysis = analyzeTile(CHR_target,x,y) & 3;
-            if(tile_analysis){
-                arrangement_target = target->getID();
-                if(!duplicateTile(arrangement_target)) continue;  //attempt to allocate new tile
-                y = scene_coordinate_y;
-                y -= target->offset().y();
-                if(y>=8){
-                    y-=8;
-                    CHR_target = edit_arrangement.tiles.at((arrangement_target<<1) + 1);
-                }
-                else{
-                    CHR_target = edit_arrangement.tiles.at(arrangement_target<<1);
-                }
-            }
-            *CHR_target = temp_tile;
-            //}
         }
     }
     compactSlow();
