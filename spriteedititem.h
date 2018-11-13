@@ -23,6 +23,7 @@ public:
     bool getFlip();
     void setTileType(bool);
     bool getTileType();
+    spriteEditItem * copy(spriteEditItem *);
 private:
     uint8_t id;
     uint8_t tile_id;

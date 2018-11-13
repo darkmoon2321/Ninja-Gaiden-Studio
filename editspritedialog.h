@@ -63,6 +63,7 @@ private slots:
     void on_radioButton_2_clicked();
     void paste_position(QMouseEvent *);
     void showContextMenu(const QPoint&);
+    void arrangement_viewport_changed();
 
 private:
     Ui::editSpriteDialog *ui;
@@ -149,6 +150,7 @@ private:
     void compactSlow();
     uint16_t tileCompareQuick(NEStile[2],uint8_t,bool);
     void deleteTile(uint8_t);
+    void drawRowUsage();
 };
 
 #endif // EDITSPRITEDIALOG_H

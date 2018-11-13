@@ -11,6 +11,8 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     arrangement_view = new spriteView(this);
     arrangement_view->setGeometry(10,50,541,352);
     arrangement_view->setMouseTracking(true);
+    ui->label_12->setGeometry(552,50,20,352);
+    ui->label_12->setPixmap(QPixmap()); //initialize row usage indicators to empty pixmap
     sprite_page = new CHR_page;
     bg_page = &backup_page;
     to_paste = NULL;
@@ -185,6 +187,8 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     undo_position = 0;
     connect(ui->horizontalScrollBar,SIGNAL(sliderMoved(int)),this,SLOT(horizontalScroll(int)));
     connect(ui->verticalScrollBar,SIGNAL(sliderMoved(int)),this,SLOT(verticalScroll(int)));
+    connect(arrangement_view->horizontalScrollBar(),SIGNAL(valueChanged(int)),this,SLOT(arrangement_viewport_changed()));
+    connect(arrangement_view->verticalScrollBar(),SIGNAL(valueChanged(int)),this,SLOT(arrangement_viewport_changed()));
     ui->horizontalScrollBar->raise();
     ui->verticalScrollBar->raise();
     widget_list.clear();
@@ -765,6 +769,7 @@ void editSpriteDialog::drawArrangement(){
     for(i=0;i<image.size();i++){
         image.at(i)->setZValue((image.size()-i)+1);
     }
+    drawRowUsage();
 }
 
 void editSpriteDialog::drawCHR(){
@@ -1443,7 +1448,7 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
     result->setPixmap(QPixmap::fromImage(QImage(8,16,QImage::Format_ARGB32)));
     result->setOffset(mouse_x,mouse_y);
     result->setFlag(QGraphicsItem::ItemIsSelectable);
-    if(((uint8_t)(spritexy_values[(uint8_t)edit_arrangement.arrangement[i]] + 0x80)) == mouse_x){
+    if((edit_arrangement.arrangement.length() && (uint8_t)(spritexy_values[(uint8_t)edit_arrangement.arrangement[i]] + 0x80)) == mouse_x){
         temp_arrangement += edit_arrangement.arrangement[i++];
         tiles_in_column = edit_arrangement.arrangement[i++] + 1;
         temp_arrangement += tiles_in_column;
@@ -1615,6 +1620,7 @@ void editSpriteDialog::on_pushButton_5_clicked()    //zoom in
         zoom_label.append("00%");
         ui->arrangement_zoom->setText(zoom_label);
         arrangement_view->scale(2,2);
+        drawRowUsage();
     }
 }
 
@@ -1627,6 +1633,7 @@ void editSpriteDialog::on_pushButton_6_clicked()    //zoom out
         zoom_label.append("00%");
         ui->arrangement_zoom->setText(zoom_label);
         arrangement_view->scale(0.5,0.5);
+        drawRowUsage();
     }
 }
 
@@ -2413,13 +2420,6 @@ void editSpriteDialog::compactSlow(){
 
     compactQuick();
     for(i=0;i<image.size();i++){
-        //If tile is already shared with another image, don't attempt to compact it
-        if(image.at(i)->getTileType()){
-            if(sprite_page->t[image.at(i)->getTileID() & 0xFE].shared || sprite_page->t[image.at(i)->getTileID() | 0x01].shared) continue;
-        }
-        else{
-            if(bg_page->t[image.at(i)->getTileID() & 0xFE].shared || bg_page->t[image.at(i)->getTileID() | 0x01].shared) continue;
-        }
         tile_id = image.at(i)->getTileID() & 0xFE;
         tile_x = image.at(i)->offset().x();
         tile_y = image.at(i)->offset().y();
@@ -2497,10 +2497,18 @@ void editSpriteDialog::compactSlow(){
         }
         if(j>=16){
             deleteTile(i);  //eliminate fully masked/transparent tiles
+            i--;
             continue;
         }
+        //if we don't wish to match unmasked portions of tiles based on color, stop here
         if(!ui->checkBox_3->isChecked()) continue;
-
+        //If tile is already shared with another image, don't attempt to compact it
+        if(image.at(i)->getTileType()){
+            if(sprite_page->t[image.at(i)->getTileID() & 0xFE].shared || sprite_page->t[image.at(i)->getTileID() | 0x01].shared) continue;
+        }
+        else{
+            if(bg_page->t[image.at(i)->getTileID() & 0xFE].shared || bg_page->t[image.at(i)->getTileID() | 0x01].shared) continue;
+        }
         //check sprite CHR page for matches.
         uint8_t temp_palette;
         flip_matched = false;
@@ -2648,13 +2656,13 @@ void editSpriteDialog::deleteTile(uint8_t tile_num){
     unsigned int i,j;
     std::string temp_arrangement = "";
     std::vector<NEStile *>temp_tiles;
-    if(tile_num >= image.size()) return;
+    if(tile_num >= (edit_arrangement.tiles.size()>>1)) return;
 
     uint8_t column_position = edit_arrangement.locateColumnInArrangement(tile_num);
     uint8_t tile_position = edit_arrangement.locateTileInArrangement(tile_num);
     uint8_t tiles_in_column = edit_arrangement.arrangement[column_position + 1] - 1;
 
-    for(i=0;i<image.size();i++){
+    for(i=0;i<(edit_arrangement.tiles.size()>>1);i++){
         if(i==tile_num) continue;
         temp_tiles.push_back(edit_arrangement.tiles.at(i<<1));
         temp_tiles.push_back(edit_arrangement.tiles.at((i<<1)+1));
@@ -2672,4 +2680,62 @@ void editSpriteDialog::deleteTile(uint8_t tile_num){
     for(;i<edit_arrangement.arrangement.length();i++) temp_arrangement += edit_arrangement.arrangement[i];
     edit_arrangement.arrangement = temp_arrangement;
     edit_arrangement.tiles = temp_tiles;
+    new_scene.removeItem(image.at(tile_num));
+    for(i=tile_num+1;i<image.size();i++){
+        ((spriteEditItem *)image.at(i - 1))->copy((spriteEditItem*)image.at(i));
+    }
+    image.pop_back();
+}
+
+void editSpriteDialog::drawRowUsage(){
+    unsigned int i,j;
+    int y_position;
+    uint8_t row_usage;
+    QImage indicator_image(ui->label_12->width(),ui->label_12->height(),QImage::Format_ARGB32);
+    QColor line_color;
+    indicator_image.fill(Qt::transparent);
+    QRgb * edit_line;
+    uint8_t row_counts[0x100];
+    for(i=0;i<0x100;i++) row_counts[i] = 0;
+    for(i=0;i<image.size();i++){
+        y_position = image.at(i)->offset().y();
+        for(j=0;j<16;j++){
+            row_counts[y_position + j]++;
+        }
+    }
+
+    for(i=0;i<ui->label_12->height();i++){
+        y_position = (arrangement_view->mapToScene(QPoint(0,i))).y();
+        if(y_position < 0 || y_position >= 0x100) continue;
+        row_usage = row_counts[y_position];
+        edit_line = (QRgb *)indicator_image.scanLine(i);
+        switch(row_usage){
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+            line_color = Qt::green;
+            break;
+        case 5:
+        case 6:
+        case 7:
+            line_color = Qt::yellow;
+            break;
+        case 8:
+            line_color = Qt::red;
+            break;
+        default:
+            line_color = Qt::transparent;
+            break;
+        }
+        row_usage<<=1;
+        for(j=0;j<row_usage;j++){
+            edit_line[j] = line_color.rgb();
+        }
+    }
+    ui->label_12->setPixmap(QPixmap::fromImage(indicator_image));
+}
+
+void editSpriteDialog::arrangement_viewport_changed(){
+    drawRowUsage();
 }
