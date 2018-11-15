@@ -16,6 +16,7 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     sprite_page = new CHR_page;
     bg_page = &backup_page;
     to_paste = NULL;
+    internal_copy = false;
     unsigned int i,j,k;
     draw_mode = false;
     paste_ready = false;
@@ -185,6 +186,7 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     undo_min = 0;
     undo_max = 0;
     undo_position = 0;
+    copy_tiles.clear();
     connect(ui->horizontalScrollBar,SIGNAL(sliderMoved(int)),this,SLOT(horizontalScroll(int)));
     connect(ui->verticalScrollBar,SIGNAL(sliderMoved(int)),this,SLOT(verticalScroll(int)));
     connect(arrangement_view->horizontalScrollBar(),SIGNAL(valueChanged(int)),this,SLOT(arrangement_viewport_changed()));
@@ -323,6 +325,10 @@ void editSpriteDialog::on_comboBox_currentIndexChanged(int index)
         ui->label_4->setPixmap(QPixmap());
     }
     old_combo_index = index;
+    undo_min = 0;
+    undo_max = 0;
+    undo_position = 0;
+
 }
 
 void editSpriteDialog::on_checkBox_toggled(bool checked)    //bg indicators
@@ -395,8 +401,20 @@ void editSpriteDialog::copy_slot(){
     QRgb * get_scanline;
     QRgb * put_scanline;
     if(last_focus == 2){
+        internal_copy = true;
+        copy_tiles.clear();
+        copy_data to_copy;
+        to_copy.x = 0;
+        to_copy.y = 0;
+        to_copy.z_value = 0;
+        to_copy.attribs = selected_palette;
+        to_copy.flip = false;
         clipboard_image = QImage(8,16,QImage::Format_ARGB32);
         if(sprite_tile_selected){
+            to_copy.tile_type = true;
+            to_copy.tile[0] = sprite_page->t[selected_tile&0xFE];
+            to_copy.tile[1] = sprite_page->t[selected_tile|0x01];
+            to_copy.tile[0].id = selected_tile&0xFE;
             for(i=0;i<8;i++){
                 get_scanline = (QRgb *)sprite_tiles[selected_palette][selected_tile&0xfe].scanLine(i);
                 put_scanline = (QRgb *)clipboard_image.scanLine(i);
@@ -413,6 +431,10 @@ void editSpriteDialog::copy_slot(){
             }
         }
         else{
+            to_copy.tile_type = false;
+            to_copy.tile[0] = bg_page->t[selected_tile&0xFE];
+            to_copy.tile[1] = bg_page->t[selected_tile|0x01];
+            to_copy.tile[0].id = selected_tile&0xFE;
             for(i=0;i<8;i++){
                 get_scanline = (QRgb *)bg_tiles[selected_palette][selected_tile&0xfe].scanLine(i);
                 put_scanline = (QRgb *)clipboard_image.scanLine(i);
@@ -428,8 +450,10 @@ void editSpriteDialog::copy_slot(){
                 }
             }
         }
+        copy_tiles.push_back(to_copy);
     }
     else if(last_focus == 1){
+        internal_copy = true;
         uint16_t min_x,max_x,min_y,max_y;
         spriteEditItem * current_tile;
         min_x = 0xffff;
@@ -510,6 +534,22 @@ void editSpriteDialog::copy_slot(){
             }
         }
         clipboard_image = from_arrangement;
+        copy_tiles.clear();
+        copy_data to_copy;
+        uint8_t num_selected = 0;
+        for(i=0;i<image.size();i++){
+            if(image.at(i)->isSelected()){
+                to_copy.x = image.at(i)->offset().x() - min_x;
+                to_copy.y = image.at(i)->offset().y() - min_y;
+                to_copy.z_value = num_selected++;
+                to_copy.tile_type = image.at(i)->getTileType();
+                to_copy.tile[0] = (to_copy.tile_type) ? sprite_page->t[image.at(i)->getTileID()&0xFE] : bg_page->t[image.at(i)->getTileID()&0xFE];
+                to_copy.tile[1] = (to_copy.tile_type) ? sprite_page->t[image.at(i)->getTileID()|0x01] : bg_page->t[image.at(i)->getTileID()|0x01];
+                to_copy.attribs = image.at(i)->getAttribs();
+                to_copy.flip = image.at(i)->getFlip();
+                copy_tiles.push_back(to_copy);
+            }
+        }
     }
     clipboard->setImage(clipboard_image);
     return;
@@ -595,6 +635,8 @@ void editSpriteDialog::clipboard_changed(){
     clipboard_scene.addItem(clipboard_item);
     clipboard_item->setOffset(0,0);
     ui->clipboard_view->fitInView(clipboard_item,Qt::KeepAspectRatio);
+    if(!internal_copy) copy_tiles.clear();
+    internal_copy = false;
 }
 
 void editSpriteDialog::horizontalScroll(int position){
@@ -1908,6 +1950,223 @@ void editSpriteDialog::paste(QMouseEvent * event){
         pixel_y = to_paste->offset().y();
     }
 
+    if(copy_tiles.size()){
+        uint8_t paste_x,paste_y,overlap_position;
+        std::string temp_arrangement;
+        std::vector<NEStile *> temp_tiles;
+        std::vector<spriteEditItem *> temp_image;
+        bool tile_match;
+        for(i=copy_tiles.size()-1;i>=0;i--){    //draw the lowest priority tiles first.
+            temp_arrangement = "";
+            temp_tiles.clear();
+            temp_image.clear();
+            tile_match = false;
+            NEStile flip_tile[2];
+            flip_tile[0] = copy_tiles.at(i).tile[0];
+            flip_tile[1] = copy_tiles.at(i).tile[1];
+            flip_tile[0].hflip();
+            flip_tile[1].hflip();
+            if(copy_tiles.at(i).tile_type){
+                if(copy_tiles.at(i).tile[0] == sprite_page->t[copy_tiles.at(i).tile[0].id & 0xFE] && \
+                        copy_tiles.at(i).tile[1] == sprite_page->t[copy_tiles.at(i).tile[0].id | 0x01]){
+                    copy_tiles.at(i).flip = false;
+                    tile_match = true;
+                }
+                if(flip_tile[0] == sprite_page->t[copy_tiles.at(i).tile[0].id & 0xFE] && \
+                        flip_tile[1] == sprite_page->t[copy_tiles.at(i).tile[0].id | 0x01]){
+                    copy_tiles.at(i).flip = false;
+                    tile_match = true;
+                }
+            }
+            else{
+                if(copy_tiles.at(i).tile[0] == bg_page->t[copy_tiles.at(i).tile[0].id & 0xFE] && \
+                        copy_tiles.at(i).tile[1] == bg_page->t[copy_tiles.at(i).tile[0].id | 0x01]){
+                    copy_tiles.at(i).flip = false;
+                    tile_match = true;
+                }
+                if(flip_tile[0] == bg_page->t[copy_tiles.at(i).tile[0].id & 0xFE] && \
+                        flip_tile[1] == bg_page->t[copy_tiles.at(i).tile[0].id | 0x01]){
+                    copy_tiles.at(i).flip = false;
+                    tile_match = true;
+                }
+            }
+            if(!tile_match){
+                for(j=0;j<0x100;j+=2){  //look for matching tiles in bg and sprite pages
+                    if(!sprite_page->sprite_used[j] && !sprite_page->t[j].shared && !sprite_page->t[j+1].shared) continue;
+                    if(copy_tiles.at(i).tile[0] == sprite_page->t[j] && copy_tiles.at(i).tile[1] == sprite_page->t[j|1]){
+                        copy_tiles.at(i).tile_type = true;
+                        copy_tiles.at(i).tile[0].id = j;
+                        copy_tiles.at(i).flip = false;
+                        break;
+                    }
+                    if(flip_tile[0] == sprite_page->t[j] && flip_tile[1] == sprite_page->t[j|1]){
+                        copy_tiles.at(i).tile_type = true;
+                        copy_tiles.at(i).tile[0].id = j;
+                        copy_tiles.at(i).flip = true;
+                        break;
+                    }
+                    if(copy_tiles.at(i).tile[0] == bg_page->t[j] && copy_tiles.at(i).tile[1] == bg_page->t[j|1]){
+                        copy_tiles.at(i).tile_type = false;
+                        copy_tiles.at(i).tile[0].id = j;
+                        copy_tiles.at(i).flip = false;
+                        break;
+                    }
+                    if(flip_tile[0] == bg_page->t[j] && flip_tile[1] == bg_page->t[j|1]){
+                        copy_tiles.at(i).tile_type = false;
+                        copy_tiles.at(i).tile[0].id = j;
+                        copy_tiles.at(i).flip = true;
+                        break;
+                    }
+                }
+                if(j>=0x100){   //if no matching tiles found, look for unused tiles instead
+                    for(j=0;j<0x100;j+=2){
+                        if(!sprite_page->sprite_used[j] && !sprite_page->sprite_used[j|1] && \
+                                !sprite_page->t[j].shared && !sprite_page->t[j|1].shared){
+                            sprite_page->t[j] = copy_tiles.at(i).tile[0];
+                            sprite_page->t[j|1] = copy_tiles.at(i).tile[1];
+                            copy_tiles.at(i).tile[0].id = j;
+                            copy_tiles.at(i).tile_type = true;
+                            break;
+                        }
+                    }
+                    if(j>=0x100){
+                        for(j=0;j<0x100;j+=2){
+                            if(!bg_page->sprite_used[j] && !bg_page->sprite_used[j|1] && \
+                                    !bg_page->t[j].shared && !bg_page->t[j|1].shared){
+                                bg_page->t[j] = copy_tiles.at(i).tile[0];
+                                bg_page->t[j|1] = copy_tiles.at(i).tile[1];
+                                copy_tiles.at(i).tile[0].id = j;
+                                copy_tiles.at(i).tile_type = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if(!tile_match && j>=0x100) continue;    //Cannot match tile, and no space to make a new one
+            paste_x = copy_tiles.at(i).x + pixel_x;
+            paste_y = copy_tiles.at(i).y + pixel_y;
+            overlap_position = overlappingTile(QPoint(paste_x,paste_y));
+            for(j=0;j<image.size();j++){
+                if(image.at(j)->offset().x() == paste_x) break;
+            }
+            if(j>overlap_position || j>=image.size()){
+                for(j=0;j<0x29;j++){
+                    if((uint8_t)(spritexy_values[j] + 0x80) == paste_x) break;
+                }
+                if(j>=0x29) continue;   //don't draw tiles that don't line up exactly in the case of an exact copy.
+                temp_arrangement += (uint8_t)j;
+                temp_arrangement += 0x01;
+                temp_arrangement += (copy_tiles.at(i).tile[0].id & 0xFE) | ((copy_tiles.at(i).tile_type)? 1 : 0);
+                for(j=0;j<0x20;j++){
+                    if((uint8_t)(spritexy_values[j] + 0x80) == paste_y) break;
+                }
+                if(j>=0x20) continue;   //don't draw tiles that don't line up exactly in the case of an exact copy.
+                temp_arrangement += (j<<3) | (copy_tiles.at(i).attribs << 1) | (copy_tiles.at(i).flip ? 1 : 0);
+                for(j=0;j<edit_arrangement.arrangement.length();j++) temp_arrangement += edit_arrangement.arrangement[j];
+                if(copy_tiles.at(i).tile_type){
+                    temp_tiles.push_back(&sprite_page->t[copy_tiles.at(i).tile[0].id & 0xFE]);
+                    temp_tiles.push_back(&sprite_page->t[copy_tiles.at(i).tile[0].id | 0x01]);
+                    sprite_page->sprite_used[copy_tiles.at(i).tile[0].id & 0xFE] = true;
+                    sprite_page->sprite_used[copy_tiles.at(i).tile[0].id | 0x01] = true;
+                }
+                else{
+                    temp_tiles.push_back(&bg_page->t[copy_tiles.at(i).tile[0].id & 0xFE]);
+                    temp_tiles.push_back(&bg_page->t[copy_tiles.at(i).tile[0].id | 0x01]);
+                    bg_page->sprite_used[copy_tiles.at(i).tile[0].id & 0xFE] = true;
+                    bg_page->sprite_used[copy_tiles.at(i).tile[0].id | 0x01] = true;
+                }
+                for(j=0;j<edit_arrangement.tiles.size();j++) temp_tiles.push_back(edit_arrangement.tiles.at(j));
+                spriteEditItem * current_item = new spriteEditItem;
+                current_item->setTileID(copy_tiles.at(i).tile[0].id);
+                current_item->setID(0);
+                current_item->setArrangementOffset(0);
+                current_item->setAttribs(copy_tiles.at(i).attribs);
+                current_item->setFlip(copy_tiles.at(i).flip);
+                current_item->setTileType(copy_tiles.at(i).tile_type);
+                new_scene.addItem(current_item);
+                current_item->setOffset(paste_x,paste_y);
+                current_item->setShapeMode(QGraphicsPixmapItem::BoundingRectShape);
+                current_item->setFlag((QGraphicsItem::ItemIsSelectable));
+                //don't bother setting the pixmap yet
+                temp_image.push_back(current_item);
+                for(j=0;j<image.size();j++) temp_image.push_back(image.at(j));
+            }
+            else{
+                //j>overlap_position || j>=image.size()
+                //current value in j is the tile # of the first tile sharing the same column as the location we wish to paste to
+                uint8_t arrangement_position = j;
+                uint8_t column_location = edit_arrangement.locateColumnInArrangement(j);
+                for(k=0;k<(column_location+1);k++) temp_arrangement += edit_arrangement.arrangement[k];
+                temp_arrangement += edit_arrangement.arrangement[k++] + 1;  //add one to the # of tiles in the columm
+                temp_arrangement += (copy_tiles.at(i).tile[0].id & 0xFE) | (copy_tiles.at(i).tile_type ? 1 : 0);
+                for(j=0;j<0x20;j++){
+                    if((uint8_t)(spritexy_values[j] + 0x80) == paste_y) break;
+                }
+                if(j>=0x20) continue;   //don't draw tiles that don't line up exactly in the case of an exact copy.
+                temp_arrangement += (j<<3) | (copy_tiles.at(i).attribs << 1) | (copy_tiles.at(i).flip ? 1 : 0);
+                for(;k<edit_arrangement.arrangement.length();k++) temp_arrangement += edit_arrangement.arrangement[k];
+                for(j=0;j<(arrangement_position<<1);j++) temp_tiles.push_back(edit_arrangement.tiles.at(j));
+                if(copy_tiles.at(i).tile_type){
+                    temp_tiles.push_back(&sprite_page->t[copy_tiles.at(i).tile[0].id & 0xFE]);
+                    temp_tiles.push_back(&sprite_page->t[copy_tiles.at(i).tile[0].id | 0x01]);
+                    sprite_page->sprite_used[copy_tiles.at(i).tile[0].id & 0xFE] = true;
+                    sprite_page->sprite_used[copy_tiles.at(i).tile[0].id | 0x01] = true;
+                }
+                else{
+                    temp_tiles.push_back(&bg_page->t[copy_tiles.at(i).tile[0].id & 0xFE]);
+                    temp_tiles.push_back(&bg_page->t[copy_tiles.at(i).tile[0].id | 0x01]);
+                    bg_page->sprite_used[copy_tiles.at(i).tile[0].id & 0xFE] = true;
+                    bg_page->sprite_used[copy_tiles.at(i).tile[0].id | 0x01] = true;
+                }
+                for(;j<edit_arrangement.tiles.size();j++) temp_tiles.push_back(edit_arrangement.tiles.at(j));
+                for(j=0;j<arrangement_position;j++) temp_image.push_back(image.at(j));
+                spriteEditItem * current_item = new spriteEditItem;
+                current_item->setTileID(copy_tiles.at(i).tile[0].id);
+                current_item->setID(arrangement_position);
+                current_item->setArrangementOffset(arrangement_position);
+                current_item->setAttribs(copy_tiles.at(i).attribs);
+                current_item->setFlip(copy_tiles.at(i).flip);
+                current_item->setTileType(copy_tiles.at(i).tile_type);
+                new_scene.addItem(current_item);
+                current_item->setOffset(paste_x,paste_y);
+                current_item->setShapeMode(QGraphicsPixmapItem::BoundingRectShape);
+                current_item->setFlag((QGraphicsItem::ItemIsSelectable));
+                //don't bother setting the pixmap yet
+                temp_image.push_back(current_item);
+                for(;j<image.size();j++){
+                    image.at(j)->setID(j+1);
+                    image.at(j)->setArrangementOffset(j+1);
+                    temp_image.push_back(image.at(j));
+                }
+            }
+            edit_arrangement.arrangement = temp_arrangement;
+            edit_arrangement.tiles = temp_tiles;
+            image = temp_image;
+        }
+        compactSlow();
+        edit_arrangement.modified = true;
+        undo_actions[undo_position].new_arrangement = edit_arrangement;
+        undo_actions[undo_position].new_bg = *bg_page;
+        undo_actions[undo_position].new_sprites = *sprite_page;
+        undo_position++;
+        if(undo_position>=UNDO_SIZE) undo_position -= UNDO_SIZE;
+        undo_max = undo_position;
+        if(undo_min == undo_max){
+            undo_min++;
+            if(undo_min >= UNDO_SIZE) undo_min -= UNDO_SIZE;
+        }
+        selected_palette = old_palette;
+        selected_color = old_color;
+        paste_ready = false;
+        updateCHRMask();
+        drawCHR();
+        drawBackground();
+        drawArrangement();
+        new_scene.removeItem(to_paste);
+        return;
+    }
+
     uint8_t scene_coordinate_x;
     uint8_t scene_coordinate_y;
 
@@ -2747,4 +3006,18 @@ void editSpriteDialog::drawRowUsage(){
 
 void editSpriteDialog::arrangement_viewport_changed(){
     drawRowUsage();
+}
+
+uint8_t editSpriteDialog::overlappingTile(QPoint pos){
+    unsigned int i;
+    uint8_t tile_x,tile_y;
+
+    for(i=0;i<image.size();i++){
+        tile_x = image.at(i)->offset().x();
+        tile_y = image.at(i)->offset().y();
+        if((pos.x() >= (tile_x+8)) || (pos.x() <= (tile_x - 8))) continue;
+        if((pos.y() >= (tile_y+16)) || (pos.y() <= (tile_y - 16))) continue;
+        return i;
+    }
+    return 0xff;
 }

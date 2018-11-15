@@ -79,7 +79,18 @@ private:
         sprite new_arrangement;
     };
 
+    struct copy_data{
+        uint8_t x;
+        uint8_t y;
+        bool tile_type;
+        NEStile tile[2];
+        uint8_t z_value;
+        uint8_t attribs;
+        bool flip;
+    };
+
     undo_data undo_actions[UNDO_SIZE];
+    std::vector<copy_data> copy_tiles;
     CHR_page * sprite_page;
     CHR_page * bg_page;
     CHR_page backup_page;
@@ -120,6 +131,7 @@ private:
     bool edit_progress;
     bool draw_mode;
     bool paste_ready;
+    bool internal_copy;
     chrItem * bg_chr_array[0x100];
     chrItem * sprite_chr_array[0x100];
     QShortcut * cut_shortcut;
@@ -151,6 +163,7 @@ private:
     uint16_t tileCompareQuick(NEStile[2],uint8_t,bool);
     void deleteTile(uint8_t);
     void drawRowUsage();
+    uint8_t overlappingTile(QPoint);
 };
 
 #endif // EDITSPRITEDIALOG_H
