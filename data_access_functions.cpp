@@ -437,7 +437,7 @@ NESpalette * getPalette(uint8_t * rom_data, uint8_t index){
     }
     pointer = (pointer&0x3fff) + 0x10010;
     for(int i=1;i<4;i++){
-        result->nes_colors[i] = rom_data[pointer + (3*index) + i - 1];
+        result->nes_colors[i] = rom_data[pointer + ((3*index)&0xff) + i - 1];
     }
     for(int i=0;i<num_palettes;i++){
         if(*result == *palettes[i]){
