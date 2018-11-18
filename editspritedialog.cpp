@@ -243,7 +243,7 @@ void editSpriteDialog::on_comboBox_currentIndexChanged(int index)
                 i++;
                 tiles_in_column = edit_arrangement.arrangement[i++];
                 for(j=0;j<tiles_in_column;j++){
-                    if(edit_arrangement.arrangement[i++]&1){
+                    if(edit_arrangement.arrangement[i]&1){
                         CHR_pages[edit_arrangement.gfx_page].t[edit_arrangement.tiles.at(tile_count)->id] = sprite_page->t[edit_arrangement.tiles.at(tile_count)->id];
                         CHR_pages[edit_arrangement.gfx_page].t[edit_arrangement.tiles.at(tile_count+1)->id] = sprite_page->t[edit_arrangement.tiles.at(tile_count+1)->id];
                         edit_arrangement.tiles.at(tile_count) = &(CHR_pages[edit_arrangement.gfx_page].t[edit_arrangement.tiles.at(tile_count)->id]);
