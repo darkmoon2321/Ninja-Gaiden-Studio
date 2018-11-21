@@ -65,6 +65,22 @@ void data_handler::importAll(uint8_t * rom){
     unsigned int i,j,k;
 
     for(i=0;i<0x29;i++) spritexy_values[i] = rom_data[spritexy_address + i];
+    for(i=0;i<0x20;i++){
+        if(spritexy_values[i] == 0xC8) break;
+    }
+    if(i>=0x20){  //If not present, we want to add 0xC8 to the original NG values for spritexy position.
+        for(i=0;i<0x20;i++){
+            for(j=i+1;j<0x20;j++){
+                if(spritexy_values[j] == spritexy_values[i]){   //overwrite the first duplicate value
+                    spritexy_values[j] = 0xC8;
+                    rom_data[spritexy_address + j] = 0xC8;
+                    break;
+                }
+            }
+            if(j<0x20) break;
+        }
+    }
+
     uint32_t chr_offset = rom_data[4]<<0x0E;
     chr_offset+=0x10;
     //*********PUT CODE HERE TO INITIALIZE CHR DATA
