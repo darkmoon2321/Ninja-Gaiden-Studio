@@ -509,6 +509,19 @@
     <string>Usg</string>
    </property>
   </widget>
+  <widget class="QCheckBox" name="forceBGCheckBox">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>640</y>
+     <width>131</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Force BG Tiles</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections>

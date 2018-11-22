@@ -1256,17 +1256,21 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
     uint8_t tiles_in_column;
     uint8_t temp_x,temp_y;
     uint8_t test_x, test_y;
-    for(i=0;i<0x100;i+=2){
-        if(sprite_page->sprite_used[i] || sprite_page->t[i].shared) continue;
-        if(sprite_page->sprite_used[i+1] || sprite_page->t[i+1].shared) continue;
-        for(j=0;j<0x10;j++){
-            sprite_page->t[i].t[j] = 0x00;
-            sprite_page->t[i+1].t[j] = 0x00;
+
+    i=0x100;
+    if(!ui->forceBGCheckBox->isChecked()){
+        for(i=0;i<0x100;i+=2){
+            if(sprite_page->sprite_used[i] || sprite_page->t[i].shared) continue;
+            if(sprite_page->sprite_used[i+1] || sprite_page->t[i+1].shared) continue;
+            for(j=0;j<0x10;j++){
+                sprite_page->t[i].t[j] = 0x00;
+                sprite_page->t[i+1].t[j] = 0x00;
+            }
+            sprite_page->t[i].checksum = 0;
+            sprite_page->t[i+1].checksum = 0;
+            sprite_free = true;
+            break;
         }
-        sprite_page->t[i].checksum = 0;
-        sprite_page->t[i+1].checksum = 0;
-        sprite_free = true;
-        break;
     }
     if(i>=0x100){
         for(i=0;i<0x100;i+=2){
@@ -1597,15 +1601,17 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
 }
 
 bool editSpriteDialog::duplicateTile(uint8_t arrangement_offset){
-    int i;
+    int i=0x100;
     uint8_t tile_free;
     bool sprite_free = false;
     NEStile * result = NULL;
-    for(i=0;i<0x100;i+=2){
-        if(sprite_page->sprite_used[i] || sprite_page->t[i].shared) continue;
-        if(sprite_page->sprite_used[i+1] || sprite_page->t[i+1].shared) continue;
-        sprite_free = true;
-        break;
+    if(!ui->forceBGCheckBox->isChecked()){
+        for(i=0;i<0x100;i+=2){
+            if(sprite_page->sprite_used[i] || sprite_page->t[i].shared) continue;
+            if(sprite_page->sprite_used[i+1] || sprite_page->t[i+1].shared) continue;
+            sprite_free = true;
+            break;
+        }
     }
     if(i>=0x100){
         for(i=0;i<0x100;i+=2){
@@ -1992,41 +1998,47 @@ void editSpriteDialog::paste(QMouseEvent * event){
             }
             if(!tile_match){
                 for(j=0;j<0x100;j+=2){  //look for matching tiles in bg and sprite pages
-                    if(!sprite_page->sprite_used[j] && !sprite_page->t[j].shared && !sprite_page->t[j+1].shared) continue;
-                    if(copy_tiles.at(i).tile[0] == sprite_page->t[j] && copy_tiles.at(i).tile[1] == sprite_page->t[j|1]){
-                        copy_tiles.at(i).tile_type = true;
-                        copy_tiles.at(i).tile[0].id = j;
-                        copy_tiles.at(i).flip = false;
-                        break;
+                    if(!ui->forceBGCheckBox->isChecked() && (sprite_page->sprite_used[j] || (sprite_page->t[j].shared || sprite_page->t[j+1].shared))){
+                        if(copy_tiles.at(i).tile[0] == sprite_page->t[j] && copy_tiles.at(i).tile[1] == sprite_page->t[j|1]){
+                            copy_tiles.at(i).tile_type = true;
+                            copy_tiles.at(i).tile[0].id = j;
+                            copy_tiles.at(i).flip = false;
+                            break;
+                        }
+                        if(flip_tile[0] == sprite_page->t[j] && flip_tile[1] == sprite_page->t[j|1]){
+                            copy_tiles.at(i).tile_type = true;
+                            copy_tiles.at(i).tile[0].id = j;
+                            copy_tiles.at(i).flip = true;
+                            break;
+                        }
                     }
-                    if(flip_tile[0] == sprite_page->t[j] && flip_tile[1] == sprite_page->t[j|1]){
-                        copy_tiles.at(i).tile_type = true;
-                        copy_tiles.at(i).tile[0].id = j;
-                        copy_tiles.at(i).flip = true;
-                        break;
-                    }
-                    if(copy_tiles.at(i).tile[0] == bg_page->t[j] && copy_tiles.at(i).tile[1] == bg_page->t[j|1]){
-                        copy_tiles.at(i).tile_type = false;
-                        copy_tiles.at(i).tile[0].id = j;
-                        copy_tiles.at(i).flip = false;
-                        break;
-                    }
-                    if(flip_tile[0] == bg_page->t[j] && flip_tile[1] == bg_page->t[j|1]){
-                        copy_tiles.at(i).tile_type = false;
-                        copy_tiles.at(i).tile[0].id = j;
-                        copy_tiles.at(i).flip = true;
-                        break;
+                    if(bg_page->sprite_used[j] || bg_page->t[j].shared || bg_page->t[j+1].shared){
+                        if(copy_tiles.at(i).tile[0] == bg_page->t[j] && copy_tiles.at(i).tile[1] == bg_page->t[j|1]){
+                            copy_tiles.at(i).tile_type = false;
+                            copy_tiles.at(i).tile[0].id = j;
+                            copy_tiles.at(i).flip = false;
+                            break;
+                        }
+                        if(flip_tile[0] == bg_page->t[j] && flip_tile[1] == bg_page->t[j|1]){
+                            copy_tiles.at(i).tile_type = false;
+                            copy_tiles.at(i).tile[0].id = j;
+                            copy_tiles.at(i).flip = true;
+                            break;
+                        }
                     }
                 }
                 if(j>=0x100){   //if no matching tiles found, look for unused tiles instead
-                    for(j=0;j<0x100;j+=2){
-                        if(!sprite_page->sprite_used[j] && !sprite_page->sprite_used[j|1] && \
-                                !sprite_page->t[j].shared && !sprite_page->t[j|1].shared){
-                            sprite_page->t[j] = copy_tiles.at(i).tile[0];
-                            sprite_page->t[j|1] = copy_tiles.at(i).tile[1];
-                            copy_tiles.at(i).tile[0].id = j;
-                            copy_tiles.at(i).tile_type = true;
-                            break;
+                    j=0x100;
+                    if(!ui->forceBGCheckBox->isChecked()){
+                        for(j=0;j<0x100;j+=2){
+                            if(!sprite_page->sprite_used[j] && !sprite_page->sprite_used[j|1] && \
+                                    !sprite_page->t[j].shared && !sprite_page->t[j|1].shared){
+                                sprite_page->t[j] = copy_tiles.at(i).tile[0];
+                                sprite_page->t[j|1] = copy_tiles.at(i).tile[1];
+                                copy_tiles.at(i).tile[0].id = j;
+                                copy_tiles.at(i).tile_type = true;
+                                break;
+                            }
                         }
                     }
                     if(j>=0x100){
@@ -2636,20 +2648,22 @@ void editSpriteDialog::compactQuick(){
 uint16_t editSpriteDialog::tileCompareQuick(NEStile to_test[2],uint8_t tile_id,bool is_sprite){
     unsigned int i;
     tile_id &= 0xFE;
-    if(sprite_page == bg_page) is_sprite = true;
-    for(i=0;i<0x100;i+=2){
-        if(is_sprite && i==tile_id) continue;
-        if(!sprite_page->sprite_used[i] && !sprite_page->t[i].shared){
-            continue;
+
+    i=0x100;
+    if(!ui->forceBGCheckBox->isChecked()){
+        if(sprite_page == bg_page) is_sprite = true;
+        for(i=0;i<0x100;i+=2){
+            if(is_sprite && i==tile_id) continue;
+            if(!sprite_page->sprite_used[i] && !sprite_page->t[i].shared && !sprite_page->t[i|1].shared) continue;
+            if((to_test[0]==sprite_page->t[i]) && (to_test[1]==sprite_page->t[i|1])) break;
         }
-        if((to_test[0]==sprite_page->t[i]) && (to_test[1]==sprite_page->t[i|1])) break;
     }
     if(i<0x100) return i;
-    if(sprite_page == bg_page) return 0x200;
+    if(!ui->forceBGCheckBox->isChecked() && sprite_page == bg_page) return 0x200;
     for(i=0;i<0x100;i+=2){
         if(!is_sprite && i==tile_id) continue;
-        if(!bg_page->sprite_used[i] && !bg_page->t[i].shared) continue;
-        if((to_test[0]==bg_page->t[i]) && (to_test[1]==bg_page->t[i])) break;
+        if(!bg_page->sprite_used[i] && !bg_page->t[i].shared && !bg_page->t[i|1].shared) continue;
+        if((to_test[0]==bg_page->t[i]) && (to_test[1]==bg_page->t[i|1])) break;
     }
     return i+0x100;
 }
@@ -2780,70 +2794,72 @@ void editSpriteDialog::compactSlow(){
         //check sprite CHR page for matches.
         uint8_t temp_palette;
         flip_matched = false;
-        for(j=0;j<0x100;j+=2){
-            if(tile_id == j && image.at(i)->getTileType()) continue;
-            for(temp_palette = 0;temp_palette<4;temp_palette++){
-                for(k=0;k<8;k++){
-                    for(l=0;l<8;l++){
-                        //ignore masked pixels
-                        if(complete_mask[k][l]) continue;
-                        color_index = 0;
-                        color_index |= (sprite_page->t[j].t[k] >> (7-l))&0x01;
-                        color_index |= ((sprite_page->t[j].t[k+8] >> (7-l))&0x01)<<1;
-                        if(to_match_indices[k][l] != palette_indices[(temp_palette<<2) + color_index]) break;
-                    }
-                    if(l<8) break;  //break here if tile does NOT match
-                }
-                if(k>=8){
+        if(!ui->forceBGCheckBox->isChecked()){
+            for(j=0;j<0x100;j+=2){
+                if(tile_id == j && image.at(i)->getTileType()) continue;
+                for(temp_palette = 0;temp_palette<4;temp_palette++){
                     for(k=0;k<8;k++){
                         for(l=0;l<8;l++){
                             //ignore masked pixels
-                            if(complete_mask[k+8][l]) continue;
+                            if(complete_mask[k][l]) continue;
                             color_index = 0;
-                            color_index |= (sprite_page->t[j|1].t[k] >> (7-l))&0x01;
-                            color_index |= ((sprite_page->t[j|1].t[k+8] >> (7-l))&0x01)<<1;
-                            if(to_match_indices[k+8][l] != palette_indices[(temp_palette<<2) + color_index]) break;
+                            color_index |= (sprite_page->t[j].t[k] >> (7-l))&0x01;
+                            color_index |= ((sprite_page->t[j].t[k+8] >> (7-l))&0x01)<<1;
+                            if(to_match_indices[k][l] != palette_indices[(temp_palette<<2) + color_index]) break;
                         }
-                        if(l<8) break; //break here if tile does NOT match
-                    }
-                    if(k>=8) break; //break here if we have found a match
-                }
-                //If we fail to match to an unflipped tile, attempt to match to the flipped version.
-                for(k=0;k<8;k++){
-                    for(l=0;l<8;l++){
-                        //ignore masked pixels
-                        if(complete_mask[k][7-l]) continue;
-                        color_index = 0;
-                        color_index |= (sprite_page->t[j].t[k] >> (7-l))&0x01;
-                        color_index |= ((sprite_page->t[j].t[k+8] >> (7-l))&0x01)<<1;
-                        if(to_match_indices[k][7-l] != palette_indices[(temp_palette<<2) + color_index]) break;
-                    }
-                    if(l<8) break;  //break here if tile does NOT match
-                }
-                if(k>=8){
-                    for(k=0;k<8;k++){
-                        for(l=0;l<8;l++){
-                            //ignore masked pixels
-                            if(complete_mask[k+8][7-l]) continue;
-                            color_index = 0;
-                            color_index |= (sprite_page->t[j|1].t[k] >> (7-l))&0x01;
-                            color_index |= ((sprite_page->t[j|1].t[k+8] >> (7-l))&0x01)<<1;
-                            if(to_match_indices[k+8][7-l] != palette_indices[(temp_palette<<2) + color_index]) break;
-                        }
-                        if(l<8) break; //break here if tile does NOT match
+                        if(l<8) break;  //break here if tile does NOT match
                     }
                     if(k>=8){
-                        flip_matched = true;
-                        break; //break here if we have found a match
+                        for(k=0;k<8;k++){
+                            for(l=0;l<8;l++){
+                                //ignore masked pixels
+                                if(complete_mask[k+8][l]) continue;
+                                color_index = 0;
+                                color_index |= (sprite_page->t[j|1].t[k] >> (7-l))&0x01;
+                                color_index |= ((sprite_page->t[j|1].t[k+8] >> (7-l))&0x01)<<1;
+                                if(to_match_indices[k+8][l] != palette_indices[(temp_palette<<2) + color_index]) break;
+                            }
+                            if(l<8) break; //break here if tile does NOT match
+                        }
+                        if(k>=8) break; //break here if we have found a match
+                    }
+                    //If we fail to match to an unflipped tile, attempt to match to the flipped version.
+                    for(k=0;k<8;k++){
+                        for(l=0;l<8;l++){
+                            //ignore masked pixels
+                            if(complete_mask[k][7-l]) continue;
+                            color_index = 0;
+                            color_index |= (sprite_page->t[j].t[k] >> (7-l))&0x01;
+                            color_index |= ((sprite_page->t[j].t[k+8] >> (7-l))&0x01)<<1;
+                            if(to_match_indices[k][7-l] != palette_indices[(temp_palette<<2) + color_index]) break;
+                        }
+                        if(l<8) break;  //break here if tile does NOT match
+                    }
+                    if(k>=8){
+                        for(k=0;k<8;k++){
+                            for(l=0;l<8;l++){
+                                //ignore masked pixels
+                                if(complete_mask[k+8][7-l]) continue;
+                                color_index = 0;
+                                color_index |= (sprite_page->t[j|1].t[k] >> (7-l))&0x01;
+                                color_index |= ((sprite_page->t[j|1].t[k+8] >> (7-l))&0x01)<<1;
+                                if(to_match_indices[k+8][7-l] != palette_indices[(temp_palette<<2) + color_index]) break;
+                            }
+                            if(l<8) break; //break here if tile does NOT match
+                        }
+                        if(k>=8){
+                            flip_matched = true;
+                            break; //break here if we have found a match
+                        }
                     }
                 }
-            }
-            if(temp_palette<4){
-                sprite_matched = true;
-                break;   //we have found a match
+                if(temp_palette<4){
+                    sprite_matched = true;
+                    break;   //we have found a match
+                }
             }
         }
-        if(sprite_page != bg_page && !sprite_matched){
+        if(ui->forceBGCheckBox->isChecked() || (sprite_page != bg_page && !sprite_matched)){
             //look for matches in the bg CHR page)
             for(j=0;j<0x100;j+=2){
                 if(tile_id == j && !image.at(i)->getTileType()) continue;
