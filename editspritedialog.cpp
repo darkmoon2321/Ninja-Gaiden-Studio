@@ -1028,6 +1028,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
             CHR_target->checksum += CHR_target->t[i];
         }
         compactQuick();
+        reparseImage();
         edit_arrangement.modified = true;
         undo_actions[undo_position].new_arrangement = edit_arrangement;
         undo_actions[undo_position].new_bg = *bg_page;
@@ -1066,6 +1067,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
     }
     if(!selected_color){
         compactQuick();
+        reparseImage();
         edit_arrangement.modified = true;
         undo_actions[undo_position].new_arrangement = edit_arrangement;
         undo_actions[undo_position].new_bg = *bg_page;
@@ -1126,6 +1128,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
     }
     *CHR_target = temp_tile;
     compactQuick();
+    reparseImage();
     edit_arrangement.modified = true;
     undo_actions[undo_position].new_arrangement = edit_arrangement;
     undo_actions[undo_position].new_bg = *bg_page;
@@ -2972,10 +2975,10 @@ void editSpriteDialog::deleteTile(uint8_t tile_num){
     for(;i<edit_arrangement.arrangement.length();i++) temp_arrangement += edit_arrangement.arrangement[i];
     edit_arrangement.arrangement = temp_arrangement;
     edit_arrangement.tiles = temp_tiles;
-    new_scene.removeItem(image.at(tile_num));
     for(i=tile_num+1;i<image.size();i++){
         ((spriteEditItem *)image.at(i - 1))->copy((spriteEditItem*)image.at(i));
     }
+    new_scene.removeItem(image.at(image.size()-1));
     image.pop_back();
 }
 
