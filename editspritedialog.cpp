@@ -887,7 +887,8 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
     uint8_t scene_coordinate_x = (arrangement_view->mapToScene(event->localPos().x(),event->localPos().y())).x();
     uint8_t scene_coordinate_y = (arrangement_view->mapToScene(event->localPos().x(),event->localPos().y())).y();
 
-    QList<QGraphicsItem *> target_candidates = new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y));
+    //QList<QGraphicsItem *> target_candidates = new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y));
+    QList<QGraphicsItem *> target_candidates = itemsAtPos(QPointF(scene_coordinate_x,scene_coordinate_y));
 
     if(!draw_mode && !paste_ready){
         last_focus = 1;
@@ -2546,6 +2547,13 @@ void editSpriteDialog::delete_slot(){
         undo_actions[undo_position].new_arrangement = edit_arrangement;
         undo_actions[undo_position].new_bg = *bg_page;
         undo_actions[undo_position].new_sprites = *sprite_page;
+        undo_position++;
+        if(undo_position>=UNDO_SIZE) undo_position -= UNDO_SIZE;
+        undo_max = undo_position;
+        if(undo_min == undo_max){
+            undo_min++;
+            if(undo_min >= UNDO_SIZE) undo_min -= UNDO_SIZE;
+        }
         updateCHRMask();
         drawCHR();
         drawBackground();
