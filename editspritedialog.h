@@ -15,6 +15,7 @@
 #include <QObjectList>
 #include "arrangementedititem.h"
 #include <QMenu>
+#include "selectchrdialog.h"
 
 namespace Ui {
 class editSpriteDialog;
@@ -64,7 +65,10 @@ private slots:
     void paste_position(QMouseEvent *);
     void showContextMenu(const QPoint&);
     void arrangement_viewport_changed();
-
+    void bg_CHR_context(const QPoint&);
+    void sprite_CHR_context(const QPoint&);
+    void select_bg_page();
+    void select_sprite_page();
 private:
     Ui::editSpriteDialog *ui;
 

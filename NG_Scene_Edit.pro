@@ -65,7 +65,8 @@ SOURCES += main.cpp\
     resizebgdialog.cpp \
     editspritedialog.cpp \
     spriteedititem.cpp \
-    spriteview.cpp
+    spriteview.cpp \
+    selectchrdialog.cpp
 
 HEADERS  += mainwindow.h \
     data_handler.h \
@@ -108,13 +109,15 @@ HEADERS  += mainwindow.h \
     resizebgdialog.h \
     editspritedialog.h \
     spriteedititem.h \
-    spriteview.h
+    spriteview.h \
+    selectchrdialog.h
 
 FORMS    += mainwindow.ui \
     importsceneselectdialog.ui \
     importbgdialog.ui \
     resizebgdialog.ui \
-    editspritedialog.ui
+    editspritedialog.ui \
+    selectchrdialog.ui
 
 RESOURCES += \
     resources.qrc

@@ -196,6 +196,10 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     widget_list.clear();
     arrangement_view->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(arrangement_view,SIGNAL(customContextMenuRequested(const QPoint&)),this,SLOT(showContextMenu(const QPoint&)));
+    ui->BG_chr_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->sprite_CHR_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->BG_chr_view,SIGNAL(customContextMenuRequested(const QPoint&)),this,SLOT(bg_CHR_context(const QPoint&)));
+    connect(ui->sprite_CHR_view,SIGNAL(customContextMenuRequested(const QPoint&)),this,SLOT(sprite_CHR_context(const QPoint&)));
 
     QObjectList child_list = children();
     for(i=0;i<child_list.size();i++){
@@ -1295,6 +1299,7 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
     uint8_t temp_diff;
     int8_t best_offset = -1;
     for(i=0;i<0x29;i++){
+        if(ui->checkBox_5->isChecked() && (spritexy_values[i]&0x7)) continue;
         if(mouse_x >= (uint8_t)(spritexy_values[i] + 0x80)){
             temp_diff = mouse_x - (spritexy_values[i] + 0x80);
         }
@@ -1315,6 +1320,7 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
     min_diff = 0xff;
     best_offset = -1;
     for(i=0;i<0x20;i++){
+        if(ui->checkBox_5->isChecked() && (spritexy_values[i]&0x7)) continue;
         if(mouse_y >= (uint8_t)(spritexy_values[i] + 0x80)){
             temp_diff = mouse_y - (spritexy_values[i] + 0x80);
         }
@@ -2236,6 +2242,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
                             selected_palette = i;
                         }
                     }
+                    if(ui->checkBox_4->isChecked()) selected_palette = old_palette;
                     selected_color = pals.p[selected_palette].bestSpriteColor(image_line[(tile_width<<3) + l]);
                     //target_candidates= new_scene.items(QPointF(scene_coordinate_x,scene_coordinate_y),Qt::IntersectsItemBoundingRect);
                     target_candidates = itemsAtPos(QPointF(scene_coordinate_x,scene_coordinate_y));
@@ -3047,4 +3054,82 @@ uint8_t editSpriteDialog::overlappingTile(QPoint pos){
         return i;
     }
     return 0xff;
+}
+
+void editSpriteDialog::bg_CHR_context(const QPoint &pos){
+    QPoint global_pos = ui->BG_chr_view->mapToGlobal(pos);
+    last_focus = 2;
+
+    QMenu context_menu;
+    context_menu.addAction("Copy (Ctrl + C)",this,SLOT(copy_slot()));
+    context_menu.addAction("Select Page",this,SLOT(select_bg_page()));
+    QAction * selected_item = context_menu.exec(global_pos);
+    if(selected_item){
+
+    }
+    else{
+       //nothing was chosen
+    }
+}
+
+void editSpriteDialog::sprite_CHR_context(const QPoint &pos){
+    QPoint global_pos = ui->sprite_CHR_view->mapToGlobal(pos);
+    last_focus = 2;
+
+    QMenu context_menu;
+    context_menu.addAction("Copy (Ctrl + C)",this,SLOT(copy_slot()));
+    context_menu.addAction("Select Page",this,SLOT(select_sprite_page()));
+    QAction * selected_item = context_menu.exec(global_pos);
+    if(selected_item){
+
+    }
+    else{
+       //nothing was chosen
+    }
+}
+
+void editSpriteDialog::select_bg_page(){
+    selectCHRDialog select_dialog(this,edit_arrangement.bg_gfx_page);
+    select_dialog.exec();
+    int result = select_dialog.result();
+    if(!result) return;
+    result = select_dialog.getSelectedPage();
+    if(edit_arrangement.bg_gfx_page == (result)) return;
+    edit_arrangement.bg_gfx_page = result;
+    if(edit_arrangement.gfx_page == edit_arrangement.bg_gfx_page){
+        bg_page = sprite_page;
+    }
+    else{
+        bg_page = &backup_page;
+        *bg_page = CHR_pages[edit_arrangement.bg_gfx_page];
+    }
+    updateCHRMask();
+    drawCHR();
+    drawBackground();
+    drawArrangement();
+}
+
+void editSpriteDialog::select_sprite_page(){
+    selectCHRDialog select_dialog(this,edit_arrangement.gfx_page);
+    select_dialog.exec();
+    int result = select_dialog.result();
+    if(!result) return;
+    result = select_dialog.getSelectedPage();
+    if(edit_arrangement.gfx_page == (result)) return;
+    edit_arrangement.gfx_page = result;
+    if(edit_arrangement.gfx_page == edit_arrangement.bg_gfx_page){
+        *sprite_page = *bg_page;
+        bg_page = sprite_page;
+    }
+    else{
+        if(bg_page == sprite_page){
+            bg_page = &backup_page;
+            *bg_page = *sprite_page;
+        }
+        *sprite_page = CHR_pages[edit_arrangement.gfx_page];
+    }
+    updateCHRMask();
+    drawCHR();
+    drawBackground();
+    drawArrangement();
 }
