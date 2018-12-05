@@ -167,7 +167,9 @@ private:
     uint16_t tileCompareQuick(NEStile[2],uint8_t,bool);
     void deleteTile(uint8_t);
     void drawRowUsage();
-    uint8_t overlappingTile(QPoint);
+    std::vector<uint8_t> overlappingTile(QPoint);
+    bool tileAllowed(int);
+    std::vector<QPoint> findValidLocations(QPoint);
 };
 
 #endif // EDITSPRITEDIALOG_H

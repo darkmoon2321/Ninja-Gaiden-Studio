@@ -44,9 +44,6 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
     new_scene.addItem(overlay_item);
     overlay_item->setOffset(0,0);
 
-    //***********************************
-    //***********************************
-    //Make sure to connect new graphics view to my arrangement_clicked slot here
     connect(arrangement_view,SIGNAL(tile_pressed(QMouseEvent *)),this,SLOT(arrangement_clicked(QMouseEvent *)));
     connect(arrangement_view,SIGNAL(tile_released()),this,SLOT(arrangement_released()));
     connect(arrangement_view,SIGNAL(hover_event(QMouseEvent*)),this,SLOT(paste_position(QMouseEvent*)));
@@ -970,7 +967,6 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
                     break;
                 }
             }
-            //**********put masks stuff here.
             //don't draw on the current tile.  Allow the mouse click to propagate to the tile beneath
             mask_pixels current_mask;
             x = scene_coordinate_x;
@@ -1050,6 +1046,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
             uint8_t temp_x = masks.at(i).x;
             uint8_t temp_y = masks.at(i).y;
             uint8_t temp_target = masks.at(i).arrangement_target;
+            if(image.at(temp_target)->getFlip()) temp_x = 7-temp_x;
             if(temp_analysis&3){
                 //****attempt to allocate new tile
                 if(!duplicateTile(temp_target)) return;
@@ -1110,6 +1107,7 @@ void editSpriteDialog::arrangement_clicked(QMouseEvent * event){
     else{
         temp_tile = bg_page->t[CHR_target->id];
     }
+    if(image.at(arrangement_target)->getFlip()) x = 7-x;
     temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
     temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
     temp_tile.checksum = 0;
@@ -1232,7 +1230,7 @@ void editSpriteDialog::on_verticalSlider_sliderMoved(int position)
 uint16_t editSpriteDialog::analyzeTile(NEStile * to_check, uint8_t x, uint8_t y){
     uint16_t result = 0;
     uint8_t selected_count = 0;
-    int i;
+    unsigned int i;
 
     for(i=0;i<edit_arrangement.tiles.size();i++){
         if(to_check == edit_arrangement.tiles.at(i)){
@@ -1295,174 +1293,54 @@ spriteEditItem * editSpriteDialog::allocateNewTile(int mouse_x,int mouse_y){
         if(i>=0x100) return NULL;
     }
     tile_free = i;
-    uint8_t min_diff = 0xff;
-    uint8_t temp_diff;
-    int8_t best_offset = -1;
-    for(i=0;i<0x29;i++){
-        if(ui->checkBox_5->isChecked() && (spritexy_values[i]&0x7)) continue;
-        if(mouse_x >= (uint8_t)(spritexy_values[i] + 0x80)){
-            temp_diff = mouse_x - (spritexy_values[i] + 0x80);
-        }
-        else{
-            continue;   //only consider cases where mouse X is greater than the left side of the potential tile
-        }
-        if(temp_diff < min_diff){
-            min_diff = temp_diff;
-            if(min_diff < 8) best_offset = i;
-        }
-    }
-    if(best_offset >= 0){
-        mouse_x = (uint8_t)(spritexy_values[best_offset] + 0x80);
-    }
-    else{
-        return NULL;
-    }
-    min_diff = 0xff;
-    best_offset = -1;
-    for(i=0;i<0x20;i++){
-        if(ui->checkBox_5->isChecked() && (spritexy_values[i]&0x7)) continue;
-        if(mouse_y >= (uint8_t)(spritexy_values[i] + 0x80)){
-            temp_diff = mouse_y - (spritexy_values[i] + 0x80);
-        }
-        else{
-            continue;   //only consider cases where mouse X is greater than the left side of the potential tile
-        }
-        if(temp_diff < min_diff){
-            min_diff = temp_diff;
-            if(min_diff < 0x10) best_offset = i;
-        }
-    }
-    if(best_offset >= 0){
-        mouse_y = (uint8_t)(spritexy_values[best_offset] + 0x80);
-    }
-    else{
-        return NULL;
-    }
+
     int column_start = -1;
-    bool matched = false;
-    bool old_matched = false;
-    bool rematch_already_attempted = false;
-    struct color_match{
-        int x;
-        int y;
-        bool overlap;
-    };
-    std::vector<color_match>overlap_list;
-    bool tile_overlap;
-    int restore_x = mouse_x;
-    int restore_y = mouse_y;
-
-
-    for(i=0;i<edit_arrangement.arrangement.length();){
-        if(!matched) column_start = i;      //We want to store the earliest column overlapping desired position to draw on top.
-        if(edit_arrangement.arrangement[i]&0x80) break;
-        if((edit_arrangement.arrangement[i]&0x7F) >= 0x29){
-            temp_x = spritexy_values[0] + 0x80;
-        }
-        else{
-            temp_x = spritexy_values[(uint8_t)(edit_arrangement.arrangement[i]&0x7F)] + 0x80;
-        }
-        i++;
-        tiles_in_column = edit_arrangement.arrangement[i++];
-        for(j=0;j<tiles_in_column;j++){
-            tile_overlap = false;
-            temp_y = 0x80 + spritexy_values[(((uint8_t)edit_arrangement.arrangement[i+1])>>3)];
-            if(temp_y >= mouse_y){
-                if((temp_y - mouse_y) < 0x10){
-                    tile_count++;
-                    if(temp_x >= mouse_x){
-                        if((temp_x - mouse_x) < 8){
-                            if(!matched) matched = true;
-                            tile_overlap = true;
-                        }
-                    }
-                    else{
-                        if((mouse_x - temp_y) < 8){
-                            if(!matched) matched = true;
-                            tile_overlap = true;
-                        }
-                    }
-                }
+    std::vector<QPoint> location_list = findValidLocations(QPoint(mouse_x,mouse_y));
+    std::vector<uint8_t> overlap_list;
+    if(!location_list.size()) return NULL;
+    uint32_t min_score = 0xffffffff;
+    uint32_t current_score;
+    int best_location = -1;
+    for(i=0;i<location_list.size();i++){
+        overlap_list = overlappingTile(QPoint((uint8_t)spritexy_values[location_list.at(i).x()] + 0x80,(uint8_t)spritexy_values[location_list.at(i).y() + 0x80]));
+        current_score = 0;
+        for(j=0;j<overlap_list.size();j++){
+            if(image.at(overlap_list.at(j))->getAttribs() == selected_color){
+                current_score += 100; //we really don't want to overlap tiles with the same colors, since that is a waste
             }
             else{
-                if((mouse_y - temp_y) < 0x10){
-                    tile_count++;
-                    if(temp_x >= mouse_x){
-                        if((temp_x - mouse_x) < 8){
-                            if(!matched) matched = true;
-                            tile_overlap = true;
-                        }
-                    }
-                    else{
-                        if((mouse_x - temp_y) < 8){
-                            if(!matched) matched = true;
-                            tile_overlap = true;
-                        }
-                    }
-                }
+                current_score += 10;
             }
-            if((((uint8_t)edit_arrangement.arrangement[i+1]&6)>>1) == selected_palette){
-                color_match overlap_item;
-                overlap_item.x = temp_x;
-                overlap_item.y = temp_y;
-                overlap_item.overlap = tile_overlap;
-                overlap_list.push_back(overlap_item);
-            }
-            i+=2;
         }
-        if(i>=(edit_arrangement.arrangement.length() - 1)){    //Check the list of matching palette tiles at the end to confirm positioning
-            if(rematch_already_attempted){
-                for(j=0;j<overlap_list.size();j++){
-                    if(overlap_list.at(j).overlap) break;
-                }
-                if((j<overlap_list.size()) || (tile_count>7)){
-                    mouse_x = restore_x;
-                    mouse_y = restore_y;
-                    matched = old_matched;
-                }
+        if(current_score < min_score){
+            min_score = current_score;
+            best_location = i;
+        }
+    }
+    overlap_list = overlappingTile(QPoint((uint8_t)spritexy_values[location_list.at(best_location).x()] + 0x80,(uint8_t)spritexy_values[location_list.at(best_location).y() + 0x80]));
+    if(overlap_list.size()){
+        column_start = edit_arrangement.locateColumnInArrangement(overlap_list.at(0));
+        for(i=0;i<overlap_list.at(0);i++){
+            if(image.at(i)->offset().x() == location_list.at(best_location).x()){
+                column_start = edit_arrangement.locateColumnInArrangement(i);
                 break;
-            }
-            for(j=0;j<overlap_list.size();j++){
-                if(overlap_list.at(j).overlap){
-                    test_x = overlap_list.at(j).x;
-                    test_y = overlap_list.at(j).y;
-                    if(target_pixel.x() < test_x){
-                        test_x = test_x - 8;
-                    }
-                    else if(target_pixel.x() >= test_x + 8){
-                        test_x = test_x + 8;
-                    }
-                    if(target_pixel.y() < test_y){
-                        test_y = test_y - 0x10;
-                    }
-                    else if(target_pixel.y() >= test_y + 0x10){
-                        test_y = test_y + 0x10;
-                    }
-                    for(k=0;k<0x29;k++){
-                        if((uint8_t)spritexy_values[k] == (uint8_t)(test_x - 0x80)) break;
-                    }
-                    if(k>=0x29) continue;
-                    for(k=0;k<0x20;k++){
-                        if((uint8_t)spritexy_values[k] == (uint8_t)(test_y - 0x80)) break;
-                    }
-                    if(k>=0x20) continue;
-                    break;
-                }
-            }
-            if(j<overlap_list.size()){
-                overlap_list.clear();
-                i = 0;
-                mouse_x = test_x;
-                mouse_y = test_y;
-                tile_count = 0;
-                old_matched = matched;
-                matched = false;
-                rematch_already_attempted = true;
             }
         }
     }
-    if(tile_count > 7) return NULL; //Make sure there aren't more than 8 tiles in any row
-    if(!matched) column_start = 0;
+    else{
+        for(i=0;i<image.size();i++){
+            if(image.at(i)->offset().x() == location_list.at(best_location).x()){
+                column_start = edit_arrangement.locateColumnInArrangement(i);
+                break;
+            }
+        }
+        if(i>=image.size()) column_start = 0;
+    }
+    mouse_x = (uint8_t)(spritexy_values[location_list.at(best_location).x()] + 0x80);
+    mouse_y = (uint8_t)(spritexy_values[location_list.at(best_location).y()] + 0x80);
+    //***********************************************
+    //***********************************************
+    //***********************************************
 
     for(i=0;i<image.size();i++){
         new_scene.removeItem(image.at(i));
@@ -1614,7 +1492,6 @@ bool editSpriteDialog::duplicateTile(uint8_t arrangement_offset){
     int i=0x100;
     uint8_t tile_free;
     bool sprite_free = false;
-    NEStile * result = NULL;
     if(!ui->forceBGCheckBox->isChecked()){
         for(i=0;i<0x100;i+=2){
             if(sprite_page->sprite_used[i] || sprite_page->t[i].shared) continue;
@@ -1909,6 +1786,8 @@ void editSpriteDialog::paste(QMouseEvent * event){
     undo_actions[undo_position].old_bg = *bg_page;
     undo_actions[undo_position].old_sprites = *sprite_page;
 
+    compactQuick();
+
     spriteEditItem * target = NULL;
     std::vector<mask_pixels> masks;
     uint8_t x,y;
@@ -2068,7 +1947,9 @@ void editSpriteDialog::paste(QMouseEvent * event){
             if(!tile_match && j>=0x100) continue;    //Cannot match tile, and no space to make a new one
             paste_x = copy_tiles.at(i).x + pixel_x;
             paste_y = copy_tiles.at(i).y + pixel_y;
-            overlap_position = overlappingTile(QPoint(paste_x,paste_y));
+            if(!tileAllowed(paste_y)) continue;
+            std::vector<uint8_t> overlap_list = overlappingTile(QPoint(paste_x,paste_y));
+            overlap_position = (overlap_list.size()) ? overlap_list.at(0) : 0xff;
             for(j=0;j<image.size();j++){
                 if(image.at(j)->offset().x() == paste_x) break;
             }
@@ -2344,6 +2225,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
                             else{
                                 CHR_target = edit_arrangement.tiles.at(temp_target<<1);
                             }
+                            if(image.at(temp_target)->getFlip()) temp_x = 7-temp_x;
                             CHR_target->t[temp_y] = CHR_target->t[temp_y]&(0xff ^ (1<<(7-temp_x))); //problem with the mask****
                             CHR_target->t[temp_y+8] = CHR_target->t[temp_y + 8]&(0xff ^ (1<<(7-temp_x))); //erases pixel next to it
                             CHR_target->checksum = 0;
@@ -2382,6 +2264,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
                     else{
                         temp_tile = bg_page->t[CHR_target->id];
                     }
+                    if(image.at(arrangement_target)->getFlip()) x = 7-x;
                     temp_tile.t[y] = (temp_tile.t[y]&(0xff ^ (1<<(7-x)))) | ((pixel_color&1)<<(7-x));
                     temp_tile.t[y+8] = (temp_tile.t[y + 8]&(0xff ^ (1<<(7-x)))) | (((pixel_color&2)>>1)<<(7-x));
                     temp_tile.checksum = 0;
@@ -2521,36 +2404,12 @@ void editSpriteDialog::delete_slot(){
         uint8_t tile_number = 0;
         uint8_t column_position;
         bool at_least_one_tile;
-        for(i=0;i<edit_arrangement.arrangement.length();){
-            write_position = temp_arrangement.length();
-            column_position = edit_arrangement.arrangement[i++];
-            tiles_in_column = edit_arrangement.arrangement[i++];
-            temp_tiles_in_column = tiles_in_column;
-            at_least_one_tile = false;
-            for(j=0;j<tiles_in_column;j++){
-                if(image.at(tile_number>>1)->isSelected()){
-                    temp_tiles_in_column--;
-                    i+=2;
-                    tile_number+=2;
-                }
-                else{
-                    if(!at_least_one_tile){
-                        temp_arrangement+=column_position;
-                        temp_arrangement+=tiles_in_column;
-                        at_least_one_tile = true;
-                    }
-                    temp_arrangement+=edit_arrangement.arrangement[i++];
-                    temp_arrangement+=edit_arrangement.arrangement[i++];
-                    temp_tiles.push_back(edit_arrangement.tiles.at(tile_number++));
-                    temp_tiles.push_back(edit_arrangement.tiles.at(tile_number++));
-                }
-            }
-            if(temp_tiles_in_column){
-                temp_arrangement[write_position+1] = temp_tiles_in_column;
+        for(i=0;i<image.size();i++){
+            if(image.at(i)->isSelected()){
+                deleteTile(i);
+                i--;
             }
         }
-        edit_arrangement.arrangement = temp_arrangement;
-        edit_arrangement.tiles = temp_tiles;
         compactQuick();
         reparseImage();
         edit_arrangement.modified = true;
@@ -2591,6 +2450,9 @@ void editSpriteDialog::compactQuick(){
             temp_tile[0] = *edit_arrangement.tiles.at(tile_count);
             temp_tile[1] = *edit_arrangement.tiles.at(tile_count+1);
             tile_id = image.at(tile_count>>1)->getTileID() & 0xFE;
+            if(tile_id != (edit_arrangement.arrangement[i]&0xFE)){
+                break;
+            }
             temp_int = tileCompareQuick(temp_tile,tile_id,image.at(tile_count>>1)->getTileType());
             if(temp_int < 0x200){
                 if(edit_arrangement.arrangement[i]&1){
@@ -2614,7 +2476,6 @@ void editSpriteDialog::compactQuick(){
                     edit_arrangement.arrangement[i] = temp_int | 0x01;
                     image.at(tile_count>>1)->setTileID(temp_int | 0x01);
                 }
-                edit_arrangement.arrangement[i+1]=edit_arrangement.arrangement[i+1]&0xFE;   //clear the flip bit
                 image.at(tile_count>>1)->setFlip(false);
                 i+=2;
                 tile_count+=2;
@@ -2645,7 +2506,7 @@ void editSpriteDialog::compactQuick(){
                     edit_arrangement.arrangement[i] = temp_int | 0x01;
                     image.at(tile_count>>1)->setTileID(temp_int | 0x01);
                 }
-                edit_arrangement.arrangement[i+1]=edit_arrangement.arrangement[i+1] | 0x01;   //set the flip bit
+                edit_arrangement.arrangement[i+1]=edit_arrangement.arrangement[i+1] ^ 0x01;   //toggle the flip bit
                 image.at(tile_count>>1)->setFlip(true);
                 i+=2;
                 tile_count+=2;
@@ -2673,7 +2534,9 @@ uint16_t editSpriteDialog::tileCompareQuick(NEStile to_test[2],uint8_t tile_id,b
         for(i=0;i<0x100;i+=2){
             if(is_sprite && i==tile_id) continue;
             if(!sprite_page->sprite_used[i] && !sprite_page->t[i].shared && !sprite_page->t[i|1].shared) continue;
-            if((to_test[0]==sprite_page->t[i]) && (to_test[1]==sprite_page->t[i|1])) break;
+            if((to_test[0]==sprite_page->t[i]) && (to_test[1]==sprite_page->t[i|1])){
+                break;
+            }
         }
     }
     if(i<0x100) return i;
@@ -3042,8 +2905,9 @@ void editSpriteDialog::arrangement_viewport_changed(){
     drawRowUsage();
 }
 
-uint8_t editSpriteDialog::overlappingTile(QPoint pos){
+std::vector<uint8_t> editSpriteDialog::overlappingTile(QPoint pos){
     unsigned int i;
+    std::vector<uint8_t> result;
     uint8_t tile_x,tile_y;
 
     for(i=0;i<image.size();i++){
@@ -3051,9 +2915,9 @@ uint8_t editSpriteDialog::overlappingTile(QPoint pos){
         tile_y = image.at(i)->offset().y();
         if((pos.x() >= (tile_x+8)) || (pos.x() <= (tile_x - 8))) continue;
         if((pos.y() >= (tile_y+16)) || (pos.y() <= (tile_y - 16))) continue;
-        return i;
+        result.push_back(i);
     }
-    return 0xff;
+    return result;
 }
 
 void editSpriteDialog::bg_CHR_context(const QPoint &pos){
@@ -3132,4 +2996,66 @@ void editSpriteDialog::select_sprite_page(){
     drawCHR();
     drawBackground();
     drawArrangement();
+}
+
+bool editSpriteDialog::tileAllowed(int y_start){
+    unsigned int i,j;
+    int y_position;
+    uint8_t row_counts[0x100];
+    for(i=0;i<0x100;i++) row_counts[i] = 0;
+    for(i=0;i<image.size();i++){
+        y_position = image.at(i)->offset().y();
+        for(j=0;j<16;j++){
+            row_counts[y_position + j]++;
+        }
+    }
+    for(i=0;i<16;i++) if(row_counts[y_start + i] >= 8) return false;
+    return true;
+}
+
+std::vector<QPoint> editSpriteDialog::findValidLocations(QPoint pos){
+    std::vector<QPoint> result;
+    std::vector<uint8_t> differences;
+    unsigned int i,j,k;
+    uint8_t temp_x, temp_y;
+    uint8_t row_counts[0x100];
+
+    for(i=0;i<0x100;i++) row_counts[i] = 0;
+    for(i=0;i<image.size();i++){
+        temp_y = image.at(i)->offset().y();
+        for(j=0;j<16;j++){
+            row_counts[temp_y + j]++;
+        }
+    }
+    for(i=0;i<0x29;i++){
+        temp_x = (uint8_t)spritexy_values[i] + 0x80;
+        if(ui->checkBox_5->isChecked() && (temp_x & 0x7)) continue;
+        if(temp_x <= pos.x() && temp_x > (pos.x() - 8)){
+            for(j=0;j<0x20;j++){
+                temp_y = (uint8_t)spritexy_values[j] + 0x80;
+                if(ui->checkBox_5->isChecked() && (temp_y & 0x7)) continue;
+                if(temp_y <= pos.y() && temp_y > (pos.y() - 16)){
+                    for(k=0;k<16;k++) if(row_counts[temp_y + k] >= 8) break;
+                    if(k<16) continue;
+                    result.push_back(QPoint(i,j));
+                    differences.push_back((pos.x() - temp_x) + (pos.y() - temp_y));
+                }
+            }
+        }
+    }
+    QPoint temp_point;
+    uint8_t temp_diff;
+    for(i=0;i<result.size();i++){
+        for(j=i+1;j<result.size();j++){
+            if(differences.at(j) < differences.at(i)){
+                temp_point = result.at(i);
+                temp_diff = differences.at(i);
+                result.at(i) = result.at(j);
+                differences.at(i) = differences.at(j);
+                result.at(j) = temp_point;
+                differences.at(j) = temp_diff;
+            }
+        }
+    }
+    return result;
 }

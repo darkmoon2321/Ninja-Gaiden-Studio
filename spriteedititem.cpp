@@ -58,5 +58,6 @@ spriteEditItem* spriteEditItem::copy(spriteEditItem * to_copy){
     attribs = to_copy->attribs;
     flip = to_copy->flip;
     sprite_tile = to_copy->sprite_tile;
+    setSelected(to_copy->isSelected());
     setOffset(to_copy->offset());
 }
