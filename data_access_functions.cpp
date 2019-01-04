@@ -484,6 +484,11 @@ dialog_string * getText(uint8_t * rom_data, uint8_t index){
             case 0xF9:  //SET_INDENT
                 result->text += rom_data[pointer++];
                 break;
+            case 0xF6:  //drawBelow, Deadpool specific command
+            case 0xF7:  //drawAbove, Deadpool specific command
+                result->text += rom_data[pointer++];
+                result->text += rom_data[pointer++];
+                break;
             default:
                 break;
             }
@@ -986,8 +991,9 @@ void NEStile::vflip(){
         temp_array[i] = t[i];
         t[i] = 0;
     }
-    for(i=0;i<0x10;i++){
-        t[i] = temp_array[0x0F - i];
+    for(i=0;i<8;i++){
+        t[i] = temp_array[7 - i];
+        t[8+i] = temp_array[15-i];
     }
     //Checksum won't change for a vlip
 }
