@@ -1040,6 +1040,8 @@ void data_handler::writeToTXT(std::string file_base){
     unsigned int i,j;
     std::ofstream outfile;
     std::string f_name;
+    std::string text_dump = "";
+    std::string line;
 
     f_name = file_base + "/Scenes";
     QDir dirscene(f_name.c_str());
@@ -1059,7 +1061,9 @@ void data_handler::writeToTXT(std::string file_base){
         outfile<<convertByteToHexString(start_timers[i]&0xff);
         outfile<<'\n';
         for(j=0;j<scenes[i].size();j++){
-            outfile<<scenes[i].at(j)->writeToTXT();
+            line = scenes[i].at(j)->writeToTXT();
+            outfile<<line;
+            if(line.find("TEXT(") == 0) text_dump += line;
         }
         outfile.close();
     }
@@ -1084,6 +1088,16 @@ void data_handler::writeToTXT(std::string file_base){
         f_name = file_base + "/DynamicImages/DYNAMIC" + convertByteToHexString(ppu_strings[i]->id) + ".png";
         ppu_strings[i]->image.save(QString(f_name.c_str()),0,-1);
     }
+    f_name = file_base + "/textdump.txt";
+    outfile.open(f_name.c_str());
+    if(!outfile){
+        //ERROR HANDLER
+        QMessageBox::critical(NULL,QString("ERROR!"),QString("File could not be opened."));
+        return;
+    }
+    outfile.clear();
+    outfile<<text_dump;
+    outfile.close();
 }
 
 bool data_handler::compactImages(){
