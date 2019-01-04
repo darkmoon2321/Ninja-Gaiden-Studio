@@ -58,6 +58,7 @@ void data_handler::importAll(uint8_t * rom){
     bg_attrib_address = (bg_attrib_address&0x3fff) + 0x18010;
     palette_ptr_address = rom_data[ASM_PALLETE_PTR_ADDRESS_LO] + (rom_data[ASM_PALLETE_PTR_ADDRESS_LO + 1]<<8);
     palette_ptr_address = (palette_ptr_address&0x3fff) + 0x10010;
+    sprite_pattern_switch = (rom_data[ASM_SPRITE_PATTERN_TABLE]&0x08) ? 0 : 1;
 
     uint32_t scene_selector_limit_address = 0xffffff;
     uint32_t scene_pointer = 0;

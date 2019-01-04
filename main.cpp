@@ -61,6 +61,7 @@ CHR_page * CHR_pages;
 uint8_t num_chr_pages;
 uint32_t line_number;
 uint8_t spritexy_values[0x29];
+uint8_t sprite_pattern_switch;
 
 int main(int argc, char *argv[])
 {

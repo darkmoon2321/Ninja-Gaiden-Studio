@@ -82,11 +82,11 @@ private:
     const uint32_t ASM_BG_TILESET_PTR_HI = 0x18040;
     const uint32_t ASM_BG_ATTRIB_PTR_LO = 0x18045;
     const uint32_t ASM_BG_ATTRIB_PTR_HI = 0x1804A;
+    const uint32_t ASM_SPRITE_PATTERN_TABLE = 0X1002B;
 
     const uint32_t BANK4_WRITE_START = 0x108DF; //currently don't modify the fade timer array (value == index)
     const uint32_t BANK5_WRITE_START = 0x14418; //don't include spriteXY position array
     const uint32_t BANK6_WRITE_START = 0x182E4;
-
 
     uint8_t * rom_data;
     uint16_t * start_timers;

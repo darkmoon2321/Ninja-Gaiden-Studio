@@ -323,6 +323,7 @@ extern CHR_page * CHR_pages;
 extern uint8_t num_chr_pages;
 extern uint32_t line_number;
 extern uint8_t spritexy_values[0x29];
+extern uint8_t sprite_pattern_switch;
 
 scroll_params * getScrollParams(uint8_t *,uint8_t);
 ppu_string * getPPUString(uint8_t *,uint16_t);

@@ -651,7 +651,7 @@ sprite * getSprite(uint8_t * rom_data,uint8_t index){
         j= rom_data[pointer++];
         for(i=0;i<j;i++){
             uint8_t tile_value = rom_data[pointer++];
-            result->arrangement += tile_value; //Tile value
+            result->arrangement += tile_value^sprite_pattern_switch; //Tile value
             if(tile_value&1){
                 result->tiles.push_back(&(CHR_pages[result->gfx_page].t[tile_value&0xFE]));
                 CHR_pages[result->gfx_page].sprite_used[tile_value&0xFE] = true;
@@ -737,7 +737,7 @@ std::string sprite::write(){
         tiles_in_column = arrangement[i];
         result += arrangement[i++];         //Tiles in column
         for(j=0;j<tiles_in_column;j++){
-            tile_value = this->tiles[k]->id;
+            tile_value = this->tiles[k]->id ^ sprite_pattern_switch;
             k+=2;
             tile_value &=0xFE;
             tile_value |= ((arrangement[i++])&1);   //Tile value
