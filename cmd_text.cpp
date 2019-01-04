@@ -65,7 +65,7 @@ std::string cmd_text::writeToTXT(){
     unsigned int data_index = 0;
     for(i=0;i<dialog->text.length();i++){
         value = dialog->text[i];
-        if(value<0xf8){
+        if(value<0xf6){
             if(((value>=0x20 && value<0x5E) || (value>=0x61 && value<0x7E)) && \
                     (value!=0x25) && (value!=0x27)){
                 result += value;
@@ -214,6 +214,20 @@ std::string cmd_text::writeToTXT(){
                      break;
                 case 0xf8:
                      result += "<END>\n\n";
+                     break;
+                case 0xf6:
+                     result += "<DRAWBELOW ";
+                     result += dialog->text[i+1];
+                     result += dialog->text[i+2];
+                     result += ">";
+                     i+=2;
+                     break;
+                case 0xf7:
+                     result += "<DRAWABOVE ";
+                     result += dialog->text[i+1];
+                     result += dialog->text[i+2];
+                     result += ">";
+                     i+=2;
                      break;
             }
         }
@@ -392,6 +406,22 @@ void cmd_text::parseText(std::string text,std::string line,uint32_t & offset){
                 }
                 if(i>=num_dialogs) all_dialog[num_dialogs++] = dialog;
                 return;
+            }
+            else if(temp_string == "DRAWBELOW"){
+                dialog->text += 0xF6;
+                line_offset++;
+                dialog->text += line[line_offset++];
+                dialog->text += line[line_offset++];
+                while(line_offset < line.length() && line[line_offset]!='>') line_offset++;
+                line_offset++;
+            }
+            else if(temp_string == "DRAWABOVE"){
+                dialog->text += 0xF7;
+                line_offset++;
+                dialog->text += line[line_offset++];
+                dialog->text += line[line_offset++];
+                while(line_offset < line.length() && line[line_offset]!='>') line_offset++;
+                line_offset++;
             }
             else{
                 line_offset = temp_offset;
