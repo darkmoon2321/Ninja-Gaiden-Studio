@@ -2339,6 +2339,9 @@ void editSpriteDialog::showContextMenu(const QPoint &pos){
     context_menu.addAction("Copy (Ctrl + C)",this,SLOT(copy_slot()));
     context_menu.addAction("Paste (Ctrl + V)",this,SLOT(paste_slot()));
     context_menu.addAction("Delete",this,SLOT(delete_slot()));
+    context_menu.addAction("Horizontal Flip Tiles",this,SLOT(h_flip()));
+    context_menu.addAction("Vertical Flip Tiles",this,SLOT(v_flip()));
+    context_menu.addAction("Vertical Flip Image",this,SLOT(v_allflip()));
     QAction * selected_item = context_menu.exec(global_pos);
     if(selected_item){
 
@@ -3058,4 +3061,124 @@ std::vector<QPoint> editSpriteDialog::findValidLocations(QPoint pos){
         }
     }
     return result;
+}
+
+void editSpriteDialog::h_flip(){
+    unsigned int i,j;
+    arrangement_released();
+    undo_max = undo_position;
+    //Setup restore point in the event of undo
+    undo_actions[undo_position].old_arrangement = edit_arrangement;
+    undo_actions[undo_position].old_bg = *bg_page;
+    undo_actions[undo_position].old_sprites = *sprite_page;
+    for(i=0;i<image.size();i++){
+        if(image.at(i)->isSelected()){
+            j = edit_arrangement.locateTileInArrangement(i);
+            edit_arrangement.arrangement[j+1] = edit_arrangement.arrangement[j+1]^1;
+        }
+    }
+    edit_arrangement.modified = true;
+    undo_actions[undo_position].new_arrangement = edit_arrangement;
+    undo_actions[undo_position].new_bg = *bg_page;
+    undo_actions[undo_position].new_sprites = *sprite_page;
+    undo_position++;
+    if(undo_position>=UNDO_SIZE) undo_position -= UNDO_SIZE;
+    undo_max = undo_position;
+    if(undo_min == undo_max){
+        undo_min++;
+        if(undo_min >= UNDO_SIZE) undo_min -= UNDO_SIZE;
+    }
+    drawArrangement();
+}
+
+void editSpriteDialog::v_flip(){
+    unsigned int i,j,k;
+    NEStile temp[2];
+    bool shared;
+    arrangement_released();
+    undo_max = undo_position;
+    //Setup restore point in the event of undo
+    undo_actions[undo_position].old_arrangement = edit_arrangement;
+    undo_actions[undo_position].old_bg = *bg_page;
+    undo_actions[undo_position].old_sprites = *sprite_page;
+    for(i=0;i<image.size();i++){
+        if(image.at(i)->isSelected()){
+            shared = edit_arrangement.tiles.at(i<<1)->shared | edit_arrangement.tiles.at((i<<1)+1)->shared;
+            if(!shared){
+                for(j=0;j<image.size();j++){
+                    if(i==j) continue;
+                    if(edit_arrangement.tiles.at(i<<1) == edit_arrangement.tiles.at(j<<1)){
+                        shared = true;
+                        break;
+                    }
+                }
+            }
+            temp[0] = *edit_arrangement.tiles.at((i<<1)+1);
+            temp[1] = *edit_arrangement.tiles.at(i<<1);
+            temp[0].vflip();
+            temp[1].vflip();
+            if(shared){
+                if(!duplicateTile(i)) continue;
+            }
+            *edit_arrangement.tiles.at(i<<1) = temp[0];
+            *edit_arrangement.tiles.at((i<<1)+1) = temp[1];
+        }
+    }
+    edit_arrangement.modified = true;
+    undo_actions[undo_position].new_arrangement = edit_arrangement;
+    undo_actions[undo_position].new_bg = *bg_page;
+    undo_actions[undo_position].new_sprites = *sprite_page;
+    undo_position++;
+    if(undo_position>=UNDO_SIZE) undo_position -= UNDO_SIZE;
+    undo_max = undo_position;
+    if(undo_min == undo_max){
+        undo_min++;
+        if(undo_min >= UNDO_SIZE) undo_min -= UNDO_SIZE;
+    }
+    updateCHRMask();
+    drawCHR();
+    drawArrangement();
+}
+
+void editSpriteDialog::v_allflip(){
+    unsigned int i,j,k;
+    NEStile temp[2];
+    copy_data temp_copy_tile;
+    arrangement_released();
+    uint8_t tile_y;
+    uint16_t tile_position;
+    undo_max = undo_position;
+    //Setup restore point in the event of undo
+    undo_actions[undo_position].old_arrangement = edit_arrangement;
+    undo_actions[undo_position].old_bg = *bg_page;
+    undo_actions[undo_position].old_sprites = *sprite_page;
+    for(i=0;i<image.size();i++){
+        tile_y = image.at(i)->offset().y();
+        tile_y = 0x80 - tile_y;
+        tile_position = edit_arrangement.locateTileInArrangement(i);
+        for(j=0;j<0x20;j++) if(spritexy_values[j] == tile_y) break;
+        if(j>=0x20){
+
+        }
+        else{
+            edit_arrangement.arrangement[tile_position + 1] &= 0x7;
+            edit_arrangement.arrangement[tile_position + 1] |= (j<<3);
+        }
+    }
+    edit_arrangement.modified = true;
+    undo_actions[undo_position].new_arrangement = edit_arrangement;
+    undo_actions[undo_position].new_bg = *bg_page;
+    undo_actions[undo_position].new_sprites = *sprite_page;
+    undo_position++;
+    if(undo_position>=UNDO_SIZE) undo_position -= UNDO_SIZE;
+    undo_max = undo_position;
+    if(undo_min == undo_max){
+        undo_min++;
+        if(undo_min >= UNDO_SIZE) undo_min -= UNDO_SIZE;
+    }
+    reparseImage();
+    updateCHRMask();
+    drawCHR();
+    drawBackground();
+    drawArrangement();
 }

@@ -69,6 +69,10 @@ private slots:
     void sprite_CHR_context(const QPoint&);
     void select_bg_page();
     void select_sprite_page();
+    void h_flip();
+    void v_flip();
+    void v_allflip();
+
 private:
     Ui::editSpriteDialog *ui;
 
