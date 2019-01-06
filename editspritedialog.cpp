@@ -304,28 +304,21 @@ void editSpriteDialog::on_comboBox_currentIndexChanged(int index)
     if(index < (ui->comboBox->count() - 1)){
         sprite_palettes->setPalette(sorted_list[index]->bestPalette());
         pals = sprite_palettes->getPalette();
-        edit_arrangement = *sorted_list[index];
-        *sprite_page = CHR_pages[sorted_list[index]->gfx_page];
-        if(sorted_list[index]->gfx_page == sorted_list[index]->bg_gfx_page){
-            bg_page = sprite_page;
-        }
-        else{
-            bg_page = &backup_page;
-            *bg_page = CHR_pages[sorted_list[index]->bg_gfx_page];
-        }
-        reparseImage();
-        updateCHRMask();
-        drawCHR();
-        drawBackground();
-        drawArrangement();
+        edit_arrangement = *sorted_list[index];   
+    }
+    *sprite_page = CHR_pages[edit_arrangement.gfx_page];
+    if(edit_arrangement.gfx_page == edit_arrangement.bg_gfx_page){
+        bg_page = sprite_page;
     }
     else{
-        reparseImage();
-        updateCHRMask();
-        drawCHR();
-        drawBackground();
-        drawArrangement();
+        bg_page = &backup_page;
+        *bg_page = CHR_pages[edit_arrangement.bg_gfx_page];
     }
+    reparseImage();
+    updateCHRMask();
+    drawCHR();
+    drawBackground();
+    drawArrangement();
     old_combo_index = index;
     undo_min = 0;
     undo_max = 0;
