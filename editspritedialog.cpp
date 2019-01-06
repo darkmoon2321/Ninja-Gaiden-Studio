@@ -58,11 +58,11 @@ editSpriteDialog::editSpriteDialog(QWidget *parent) :
         for(j=0;j<num_sprites;j++){
             if(sprites[j]->id == i){
                 sorted_list[k++] = sprites[j];
-                ui->comboBox->addItem(QString(convertByteToHexString(sprites[j]->id).c_str()));
                 break;
             }
         }
     }
+    for(i=0;i<num_sprites;i++) ui->comboBox->addItem(QString(convertByteToHexString(sorted_list[i]->id).c_str()));
     ui->comboBox->addItem(QString("New"));
     k=0;
     uint16_t max_bg_id = 0;
@@ -226,6 +226,7 @@ editSpriteDialog::~editSpriteDialog()
 
 void editSpriteDialog::on_comboBox_currentIndexChanged(int index)
 {
+    if(ui->comboBox->count() < num_sprites) return;
     unsigned int i,j;
     uint8_t tiles_in_column;
     uint8_t tile_count = 0;
@@ -287,23 +288,22 @@ void editSpriteDialog::on_comboBox_currentIndexChanged(int index)
             break;
         }
     }
+    for(i=0;i<num_chr_pages;i++){
+        for(j=0;j<0x100;j++) CHR_pages[i].t[j].shared = false;
+    }
+    for(i=0;i<num_bgs;i++){
+        for(j=0;j<bgs[i]->tiles.size();j++) bgs[i]->tiles.at(j)->shared = true;
+    }
+    for(i=0;i<num_sprites;i++){
+        if(index == i) continue;
+        for(j=0;j<sorted_list[i]->tiles.size();j++) sorted_list[i]->tiles.at(j)->shared = true;
+    }
+    for(i=0;i<num_ppu_strings;i++){
+        for(j=0;j<ppu_strings[i]->tiles.size();j++) ppu_strings[i]->tiles.at(j)->shared = true;
+    }
     if(index < (ui->comboBox->count() - 1)){
         sprite_palettes->setPalette(sorted_list[index]->bestPalette());
         pals = sprite_palettes->getPalette();
-
-        for(i=0;i<num_chr_pages;i++){
-            for(j=0;j<0x100;j++) CHR_pages[i].t[j].shared = false;
-        }
-        for(i=0;i<num_bgs;i++){
-            for(j=0;j<bgs[i]->tiles.size();j++) bgs[i]->tiles.at(j)->shared = true;
-        }
-        for(i=0;i<num_sprites;i++){
-            if(index == i) continue;
-            for(j=0;j<sorted_list[i]->tiles.size();j++) sorted_list[i]->tiles.at(j)->shared = true;
-        }
-        for(i=0;i<num_ppu_strings;i++){
-            for(j=0;j<ppu_strings[i]->tiles.size();j++) ppu_strings[i]->tiles.at(j)->shared = true;
-        }
         edit_arrangement = *sorted_list[index];
         *sprite_page = CHR_pages[sorted_list[index]->gfx_page];
         if(sorted_list[index]->gfx_page == sorted_list[index]->bg_gfx_page){
@@ -313,17 +313,18 @@ void editSpriteDialog::on_comboBox_currentIndexChanged(int index)
             bg_page = &backup_page;
             *bg_page = CHR_pages[sorted_list[index]->bg_gfx_page];
         }
-
         reparseImage();
-
         updateCHRMask();
         drawCHR();
         drawBackground();
         drawArrangement();
-
     }
     else{
-        ui->label_4->setPixmap(QPixmap());
+        reparseImage();
+        updateCHRMask();
+        drawCHR();
+        drawBackground();
+        drawArrangement();
     }
     old_combo_index = index;
     undo_min = 0;
@@ -2342,6 +2343,7 @@ void editSpriteDialog::showContextMenu(const QPoint &pos){
     context_menu.addAction("Horizontal Flip Tiles",this,SLOT(h_flip()));
     context_menu.addAction("Vertical Flip Tiles",this,SLOT(v_flip()));
     context_menu.addAction("Vertical Flip Image",this,SLOT(v_allflip()));
+    context_menu.addAction("Duplicate Entire Image",this,SLOT(duplicateImage()));
     QAction * selected_item = context_menu.exec(global_pos);
     if(selected_item){
 
@@ -3181,4 +3183,9 @@ void editSpriteDialog::v_allflip(){
     drawCHR();
     drawBackground();
     drawArrangement();
+}
+
+void editSpriteDialog::duplicateImage(){
+    ui->comboBox->setCurrentIndex(num_sprites);
+    edit_arrangement.modified = true;
 }

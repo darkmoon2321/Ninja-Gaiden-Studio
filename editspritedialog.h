@@ -72,6 +72,7 @@ private slots:
     void h_flip();
     void v_flip();
     void v_allflip();
+    void duplicateImage();
 
 private:
     Ui::editSpriteDialog *ui;
