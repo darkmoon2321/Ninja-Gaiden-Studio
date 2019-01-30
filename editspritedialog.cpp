@@ -1863,7 +1863,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
                 }
                 if(flip_tile[0] == sprite_page->t[copy_tiles.at(i).tile[0].id & 0xFE] && \
                         flip_tile[1] == sprite_page->t[copy_tiles.at(i).tile[0].id | 0x01]){
-                    copy_tiles.at(i).flip = false;
+                    copy_tiles.at(i).flip = true;
                     tile_match = true;
                 }
             }
@@ -1875,7 +1875,7 @@ void editSpriteDialog::paste(QMouseEvent * event){
                 }
                 if(flip_tile[0] == bg_page->t[copy_tiles.at(i).tile[0].id & 0xFE] && \
                         flip_tile[1] == bg_page->t[copy_tiles.at(i).tile[0].id | 0x01]){
-                    copy_tiles.at(i).flip = false;
+                    copy_tiles.at(i).flip = true;
                     tile_match = true;
                 }
             }

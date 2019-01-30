@@ -8,6 +8,7 @@
 #include "cmd_bggfxpage.h"
 #include "cmd_bgset.h"
 #include "cmd_blackout.h"
+#include "cmd_dialog_delay.h"
 #include "cmd_earthquake.h"
 #include "cmd_end_scene_during_popcorn_viewer.h"
 #include "cmd_fade.h"

@@ -40,6 +40,8 @@ private:
     data_handler d_handler;
     std::string file_location;
     QLabel status_message;
+
+    void updateTextTable(QString);
 };
 
 #endif // MAINWINDOW_H

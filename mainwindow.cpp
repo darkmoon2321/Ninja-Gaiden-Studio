@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    updateTextTable(":/Resources/default.tbl");
     setWindowTitle("Ninja Gaiden Studio");
     unsigned int i;
     for(i=0;i<0x100;i++){
@@ -177,4 +178,49 @@ void MainWindow::on_export_button_clicked()
 void MainWindow::on_centralWidget_destroyed()
 {
     delete [] data;
+}
+
+void MainWindow::updateTextTable(QString file_path){
+    QFile infile(file_path);
+    QTextStream in(&infile);
+    if(!infile.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    uint8_t NG_byte;
+    QChar conversion;
+    std::string macro;
+    uint32_t offset;
+    unsigned int i;
+    for(i=0;i<0x100;i++) text_table[i] = 0;
+    while(!in.atEnd()){
+        QString line = in.readLine();
+        std::string stdline = line.toStdString();
+        offset = 0;
+        NG_byte = getIntFromTXT(stdline,offset);
+        if(offset >= line.length()) continue;
+        if(line[offset] == ','){
+            macro = "";
+            macro += NG_byte;
+            while(line[offset] == ','){
+                NG_byte = getIntFromTXT(stdline,offset);
+                if(NG_byte != 0xff) macro += NG_byte;
+            }
+            if(line[offset] == '='){
+                offset++;
+                if(offset>=line.length()) continue;
+                unicode_conversions.push_back(macro);
+                unicode_list.push_back(line.at(offset));
+            }
+        }
+        else if(line[offset] == '='){
+            offset++;
+            if(offset>=line.length()) continue;
+            conversion = line.at(offset);
+            if(conversion == ' '){
+                text_table[NG_byte] = conversion;
+            }
+            text_table[NG_byte] = conversion;
+        }
+    }
+    infile.close();
 }

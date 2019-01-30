@@ -2,4 +2,7 @@
     <qresource prefix="/img">
         <file>img/palette_select_border.png</file>
     </qresource>
+    <qresource prefix="/">
+        <file>Resources/default.tbl</file>
+    </qresource>
 </RCC>

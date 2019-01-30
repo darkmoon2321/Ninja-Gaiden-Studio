@@ -66,7 +66,8 @@ SOURCES += main.cpp\
     editspritedialog.cpp \
     spriteedititem.cpp \
     spriteview.cpp \
-    selectchrdialog.cpp
+    selectchrdialog.cpp \
+    cmd_dialog_delay.cpp
 
 HEADERS  += mainwindow.h \
     data_handler.h \
@@ -110,7 +111,8 @@ HEADERS  += mainwindow.h \
     editspritedialog.h \
     spriteedititem.h \
     spriteview.h \
-    selectchrdialog.h
+    selectchrdialog.h \
+    cmd_dialog_delay.h
 
 FORMS    += mainwindow.ui \
     importsceneselectdialog.ui \

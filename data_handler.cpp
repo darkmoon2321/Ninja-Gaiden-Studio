@@ -205,6 +205,9 @@ void data_handler::importAll(uint8_t * rom){
                 case 0x15:
                     temp_command = new cmd_halt_sprite1;
                     break;
+                case 0x16:
+                    temp_command = new cmd_dialog_delay;
+                    break;
                 default:
                     temp_command = new cmd_unknown;
                     break;
@@ -1487,6 +1490,10 @@ void data_handler::importScene(uint8_t scene_num,std::string scene_data){
         }
         else if(std::string::npos != line.find("END_SCENE")){
             temp_command = new cmd_wait;
+            temp_command->parseText(scene_data,line,offset);
+        }
+        else if(std::string::npos != line.find("DIALOG_DELAY")){
+            temp_command = new cmd_dialog_delay;
             temp_command->parseText(scene_data,line,offset);
         }
         else{   //else just continue until we find a line with one of these.

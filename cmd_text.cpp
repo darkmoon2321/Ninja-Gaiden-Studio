@@ -65,109 +65,17 @@ std::string cmd_text::writeToTXT(){
     unsigned int data_index = 0;
     for(i=0;i<dialog->text.length();i++){
         value = dialog->text[i];
+        if(value < 0x40 && value >= 0x20) value += 0x60;
         if(value<0xf6){
-            if(((value>=0x20 && value<0x5E) || (value>=0x61 && value<0x7E)) && \
-                    (value!=0x25) && (value!=0x27)){
-                result += value;
+            if(text_table[value].unicode()>>8){
+                result += text_table[value].unicode()&0xff;
+                result += (text_table[value].unicode()>>8)&0xff;
+            }
+            else if(text_table[value].unicode()){
+                result += text_table[value].unicode()&0xff;
             }
             else{
-                switch(value){
-                case 0x80:
-                     result += ' ';
-                     break;
-                case 0x81:
-                     result += '!';
-                     break;
-                case 0x82:
-                     result += '\"';
-                     break;
-                case 0x83:
-                     result += '#';
-                     break;
-                case 0x84:
-                     result += '$';
-                     break;
-                case 0x85:
-                case 0x25:
-                     result += '\'';
-                     break;
-                case 0x86:
-                     result += '&';
-                     break;
-                case 0x87:
-                case 0x27:
-                     result += '%';
-                     break;
-                case 0x88:
-                     result += '(';
-                     break;
-                case 0x89:
-                     result += ')';
-                     break;
-                case 0x8c:
-                     result += ',';
-                     break;
-                case 0x8d:
-                     result += '-';
-                     break;
-                case 0x8e:
-                     result += '.';
-                     break;
-                case 0x8f:
-                     result += '/';
-                     break;
-                case 0x90:
-                     result += '0';
-                     break;
-                case 0x91:
-                     result += '1';
-                     break;
-                case 0x92:
-                     result += '2';
-                     break;
-                case 0x93:
-                     result += '3';
-                     break;
-                case 0x94:
-                     result += '4';
-                     break;
-                case 0x95:
-                     result += '5';
-                     break;
-                case 0x96:
-                     result += '6';
-                     break;
-                case 0x97:
-                     result += '7';
-                     break;
-                case 0x98:
-                     result += '8';
-                     break;
-                case 0x99:
-                     result += '9';
-                     break;
-                case 0x9a:
-                     result += ':';
-                     break;
-                case 0x9b:
-                     result += ';';
-                     break;
-                /*case 0x9c:
-                     result += '<';
-                     break;*/
-                case 0x9d:
-                     result += '=';
-                     break;
-                /*case 0x9e:
-                     result += '>';
-                     break;*/
-                case 0x9f:
-                     result += '?';
-                     break;
-                default:
-                     result += '<' + convertByteToHexString(value) + '>';
-                     break;
-                }
+                result += '<' + convertByteToHexString(value) + '>';
             }
         }
         else{
@@ -217,15 +125,43 @@ std::string cmd_text::writeToTXT(){
                      break;
                 case 0xf6:
                      result += "<DRAWBELOW ";
-                     result += dialog->text[i+1];
-                     result += dialog->text[i+2];
+                     value = dialog->text[i+1];
+                     if(text_table[value].unicode()>>8){
+                         result += text_table[value].unicode()&0xff;
+                         result += (text_table[value].unicode()>>8)&0xff;
+                     }
+                     else if(text_table[value].unicode()){
+                         result += text_table[value].unicode()&0xff;
+                     }
+                     value = dialog->text[i+2];
+                     if(text_table[value].unicode()>>8){
+                         result += text_table[value].unicode()&0xff;
+                         result += (text_table[value].unicode()>>8)&0xff;
+                     }
+                     else if(text_table[value].unicode()){
+                         result += text_table[value].unicode()&0xff;
+                     }
                      result += ">";
                      i+=2;
                      break;
                 case 0xf7:
                      result += "<DRAWABOVE ";
-                     result += dialog->text[i+1];
-                     result += dialog->text[i+2];
+                     value = dialog->text[i+1];
+                     if(text_table[value].unicode()>>8){
+                         result += text_table[value].unicode()&0xff;
+                         result += (text_table[value].unicode()>>8)&0xff;
+                     }
+                     else if(text_table[value].unicode()){
+                         result += text_table[value].unicode()&0xff;
+                     }
+                     value = dialog->text[i+2];
+                     if(text_table[value].unicode()>>8){
+                         result += text_table[value].unicode()&0xff;
+                         result += (text_table[value].unicode()>>8)&0xff;
+                     }
+                     else if(text_table[value].unicode()){
+                         result += text_table[value].unicode()&0xff;
+                     }
                      result += ">";
                      i+=2;
                      break;
@@ -268,7 +204,7 @@ void cmd_text::parseText(std::string text,std::string line,uint32_t & offset){
     dialog->id = num_dialogs;
     dialog->references = 0;
     dialog->text = "";
-    uint8_t value;
+    QChar value;
     std::string temp_string;
     //uint8_t indentation = 2;
     //line_offset = indentation;
@@ -279,21 +215,8 @@ void cmd_text::parseText(std::string text,std::string line,uint32_t & offset){
 
             QMessageBox::critical(NULL,QString("Bad text."),QString(dialog->text.c_str()));
         }
-        value = line[line_offset++];
-        if(((value>=0x20 && value<0x5E) || (value>=0x61 && value<0x7E)) && \
-                (value!=0x25) && (value!=0x27) && (value!=0x3C)){
-            dialog->text += value;
-        }
-        else if(value == 0x25 || value == 0x85){
-            dialog->text += 0x27;
-        }
-        else if(value == 0x27 || value == 0x87){
-            dialog->text += 0x25;
-        }
-        else if((value>=0x80 && value < 0x9C)){
-            dialog->text = value - 0x60;
-        }
-        else if(value == 0x3C){
+        value = getUnicodeChar(line,line_offset);
+        if(value == '<'){
             temp_offset = line_offset;
             temp_string = getWordFromTXT(line,line_offset);
             lineUpper(temp_string);
@@ -410,16 +333,24 @@ void cmd_text::parseText(std::string text,std::string line,uint32_t & offset){
             else if(temp_string == "DRAWBELOW"){
                 dialog->text += 0xF6;
                 line_offset++;
-                dialog->text += line[line_offset++];
-                dialog->text += line[line_offset++];
+                value = getUnicodeChar(line,line_offset);
+                for(i=0;i<0x100;i++) if(text_table[i] == value) break;
+                dialog->text += (uint8_t)i;
+                value = getUnicodeChar(line,line_offset);
+                for(i=0;i<0x100;i++) if(text_table[i] == value) break;
+                dialog->text += (uint8_t)i;
                 while(line_offset < line.length() && line[line_offset]!='>') line_offset++;
                 line_offset++;
             }
             else if(temp_string == "DRAWABOVE"){
                 dialog->text += 0xF7;
                 line_offset++;
-                dialog->text += line[line_offset++];
-                dialog->text += line[line_offset++];
+                value = getUnicodeChar(line,line_offset);
+                for(i=0;i<0x100;i++) if(text_table[i] == value) break;
+                dialog->text += (uint8_t)i;
+                value = getUnicodeChar(line,line_offset);
+                for(i=0;i<0x100;i++) if(text_table[i] == value) break;
+                dialog->text += (uint8_t)i;
                 while(line_offset < line.length() && line[line_offset]!='>') line_offset++;
                 line_offset++;
             }
@@ -429,6 +360,16 @@ void cmd_text::parseText(std::string text,std::string line,uint32_t & offset){
                 dialog->text += (uint8_t) temp_int;
                 while(line_offset < line.length() && line[line_offset]!='>') line_offset++;
                 line_offset++;
+            }
+        }
+        else{
+            for(i=0;i<0x100;i++) if(text_table[i] == value) break;
+            if(i<0x100){
+                dialog->text += (uint8_t)i;
+            }
+            else{
+                for(i=0;i<unicode_list.length();i++) if(unicode_list[i] == value) break;
+                if(i<unicode_list.length()) dialog->text += unicode_conversions.at(i);
             }
         }
     }

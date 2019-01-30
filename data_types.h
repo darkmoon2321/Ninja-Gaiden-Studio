@@ -324,6 +324,9 @@ extern uint8_t num_chr_pages;
 extern uint32_t line_number;
 extern uint8_t spritexy_values[0x29];
 extern uint8_t sprite_pattern_switch;
+extern QChar text_table[0x100];
+extern std::vector<std::string> unicode_conversions;
+extern QString unicode_list;
 
 scroll_params * getScrollParams(uint8_t *,uint8_t);
 ppu_string * getPPUString(uint8_t *,uint16_t);
@@ -343,6 +346,7 @@ std::string convertByteToHexString(uint8_t toConvert);
 std::string convert24BitToHexString(uint32_t toConvert);
 QColor getColor(uint8_t);
 std::string getLine(const std::string &s, uint32_t & offset);
+QChar getUnicodeChar(const std::string &s, uint32_t & offset);
 bool isValidText(uint8_t to_test);
 bool isWhitespace(uint8_t to_test);
 void skipWhitespace(const std::string s,uint32_t & offset);

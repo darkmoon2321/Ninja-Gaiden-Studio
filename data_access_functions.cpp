@@ -1566,3 +1566,9 @@ uint8_t sprite::locateColumnInArrangement(uint8_t to_find){
     }
     return 0xff;
 }
+
+QChar getUnicodeChar(const std::string &s, uint32_t & offset){
+    uint16_t result = s[offset++];
+    if(result&0x80) result |= (s[offset++]<<8);
+    return (QChar)result;
+}

@@ -108,6 +108,9 @@ importBGdialog::importBGdialog(QWidget *parent) :
     connect(paste_shortcut,SIGNAL(activated()),this,SLOT(paste_slot()));
     connect(undo_shortcut,SIGNAL(activated()),this,SLOT(undo_slot()));
     connect(redo_shortcut,SIGNAL(activated()),this,SLOT(redo_slot()));
+    ui->newBGView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->newBGView,SIGNAL(customContextMenuRequested(const QPoint&)),this,SLOT(showContextMenu(const QPoint&)));
+
     clipboard = QApplication::clipboard();
     clipboard_image = clipboard->image();
     clipboard_item = new QGraphicsPixmapItem(clipboard->pixmap());
@@ -178,6 +181,7 @@ void importBGdialog::on_pushButton_clicked()
 
 void importBGdialog::on_comboBox_currentIndexChanged(int index)
 {
+    if(ui->comboBox->count() < num_bgs) return;
     tile_released();
     unsigned int i,j;
     if(edit_arrangement.modified){
@@ -219,29 +223,29 @@ void importBGdialog::on_comboBox_currentIndexChanged(int index)
             break;
         }
     }
+    for(i=0;i<num_chr_pages;i++){
+        for(j=0;j<0x100;j++){
+            CHR_pages[i].t[j].shared = false;
+        }
+    }
+    for(i=0;i<num_bgs;i++){
+        if(index == i) continue;
+        for(j=0;j<sorted_list[i]->tiles.size();j++){
+            sorted_list[i]->tiles.at(j)->shared = true;
+        }
+    }
+    for(i=0;i<num_sprites;i++){
+        for(j=0;j<sprites[i]->tiles.size();j++) sprites[i]->tiles.at(j)->shared = true;
+    }
+    for(i=0;i<num_ppu_strings;i++){
+        for(j=0;j<ppu_strings[i]->tiles.size();j++) ppu_strings[i]->tiles.at(j)->shared = true;
+    }
     if(index < (ui->comboBox->count() - 1)){
         ui->label_4->setPixmap(QPixmap::fromImage(sorted_list[index]->image));
         ui->label_4->resize(sorted_list[index]->image.width(),sorted_list[index]->image.height());
         bg_palettes->setPalette(sorted_list[index]->bestPalette());
         pals = bg_palettes->getPalette();
 
-        for(i=0;i<num_chr_pages;i++){
-            for(j=0;j<0x100;j++){
-                CHR_pages[i].t[j].shared = false;
-            }
-        }
-        for(i=0;i<num_bgs;i++){
-            if(index == i) continue;
-            for(j=0;j<sorted_list[i]->tiles.size();j++){
-                sorted_list[i]->tiles.at(j)->shared = true;
-            }
-        }
-        for(i=0;i<num_sprites;i++){
-            for(j=0;j<sprites[i]->tiles.size();j++) sprites[i]->tiles.at(j)->shared = true;
-        }
-        for(i=0;i<num_ppu_strings;i++){
-            for(j=0;j<ppu_strings[i]->tiles.size();j++) ppu_strings[i]->tiles.at(j)->shared = true;
-        }
         edit_arrangement = *sorted_list[index];
         page = CHR_pages[sorted_list[index]->gfx_page];
         updateCHRMask();
@@ -250,7 +254,10 @@ void importBGdialog::on_comboBox_currentIndexChanged(int index)
         drawArrangement();
     }
     else{
-        ui->label_4->setPixmap(QPixmap());
+        updateCHRMask();
+        drawCHR();
+        resizeArrangement(edit_arrangement.metatilesX<<2,edit_arrangement.metatilesY<<1);
+        drawArrangement();
     }
     old_combo_index = index;
 }
@@ -1617,4 +1624,25 @@ void importBGdialog::horizontalScroll(int position){
     ui->radioButton_2->move(widget_offsets[0x16].x() - offset, ui->radioButton_2->y());
     ui->tile_view->move(widget_offsets[0x17].x() - offset, ui->tile_view->y());
 
+}
+
+void importBGdialog::showContextMenu(const QPoint & pos){
+    QPoint global_pos = ui->newBGView->mapToGlobal(pos);
+
+    QMenu context_menu;
+    context_menu.addAction("Copy (Ctrl + C)",this,SLOT(copy_slot()));
+    context_menu.addAction("Paste (Ctrl + V)",this,SLOT(paste_slot()));
+    context_menu.addAction("Duplicate Entire Image",this,SLOT(duplicateImage()));
+    QAction * selected_item = context_menu.exec(global_pos);
+    if(selected_item){
+
+    }
+    else{
+        //nothing was chosen
+    }
+}
+
+void importBGdialog::duplicateImage(){
+    ui->comboBox->setCurrentIndex(num_bgs);
+    edit_arrangement.modified = true;
 }

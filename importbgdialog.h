@@ -14,6 +14,7 @@
 #include <QShortcut>
 #include <QClipboard>
 #include "resizebgdialog.h"
+#include <QMenu>
 
 namespace Ui {
 class importBGdialog;
@@ -55,6 +56,9 @@ private slots:
     void resizeEvent(QResizeEvent *);
     void verticalScroll(int);
     void horizontalScroll(int);
+    void showContextMenu(const QPoint &);
+    void duplicateImage();
+
 private:
     const static int UNDO_SIZE = 10;
 
