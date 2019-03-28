@@ -33,6 +33,7 @@ uint32_t cmd_text::parseData(uint8_t * data, uint32_t scene_pointer,uint8_t scen
         }
         else{
             ((sprite *)dialog->data[i])->references |= (1<<scene_number);
+            ((sprite *)dialog->data[i])->text_engine = true;
             for(j=0;j<((sprite*)dialog->data[i])->pals.size();j++){
                 if(((sprite*)dialog->data[i])->pals[j] == current_palettes[1]) break;
             }
@@ -244,6 +245,7 @@ void cmd_text::parseText(std::string text,std::string line,uint32_t & offset){
                     if(sprites[i]->id == temp_int) break;
                 }
                 if(i>=num_sprites) i=0;
+                sprites[i]->text_engine = true;
                 dialog->data.push_back(sprites[i]);
                 dialog->is_animation.push_back(false);
                 while(line_offset < line.length() && line[line_offset]!='>') line_offset++;
@@ -385,4 +387,8 @@ void cmd_text::addRef(uint8_t scene_num){
             }
         }
     }
+}
+
+QString cmd_text::getName(){
+    return QString("TEXT");
 }

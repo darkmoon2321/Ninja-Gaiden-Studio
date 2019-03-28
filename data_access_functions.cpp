@@ -643,6 +643,7 @@ sprite * getSprite(uint8_t * rom_data,uint8_t index){
     result->gfx_page = rom_data[pointer++];
     result->arrangement = "";
     result->modified = false;
+    result->text_engine = false;
     i=0;
     while(!(rom_data[pointer]&0x80)){
         unsigned int j;

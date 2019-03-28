@@ -34,3 +34,7 @@ cmd_setup_boss_rush_text::~cmd_setup_boss_rush_text(){
 void cmd_setup_boss_rush_text::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_setup_boss_rush_text::getName(){
+    return QString("SETUP_BOSS_RUSH_TEXT");
+}

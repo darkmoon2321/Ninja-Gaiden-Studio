@@ -6,90 +6,81 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>595</width>
+    <height>490</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>NG Scene Editor</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <widget class="QPushButton" name="importROM_button">
+   <widget class="QListView" name="listView">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>70</y>
+      <width>241</width>
+      <height>311</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>40</y>
+      <width>61</width>
+      <height>25</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>20</y>
-      <width>101</width>
-      <height>25</height>
+      <width>67</width>
+      <height>17</height>
      </rect>
     </property>
     <property name="text">
-     <string>Import ROM</string>
+     <string>Scene</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="importScene_button">
+   <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>50</y>
-      <width>101</width>
-      <height>25</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Import Scene</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="importBG_button">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>80</y>
-      <width>161</width>
-      <height>25</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Edit BG Image</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="importSprite_button">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>110</y>
-      <width>161</width>
-      <height>25</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Edit Sprite Image</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="save_button">
-    <property name="geometry">
-     <rect>
-      <x>150</x>
-      <y>190</y>
-      <width>111</width>
-      <height>25</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Save Changes</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="export_button">
-    <property name="geometry">
-     <rect>
-      <x>250</x>
-      <y>20</y>
+      <y>380</y>
       <width>121</width>
       <height>25</height>
      </rect>
     </property>
     <property name="text">
-     <string>Export All Data</string>
+     <string>Insert Command</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBox_2">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>200</y>
+      <width>86</width>
+      <height>25</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>380</x>
+      <y>200</y>
+      <width>71</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Command</string>
     </property>
    </widget>
   </widget>
@@ -98,14 +89,21 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>400</width>
+     <width>595</width>
      <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuNG_Scene_Editor">
     <property name="title">
-     <string>NG Scene Editor</string>
+     <string>File</string>
     </property>
+    <addaction name="actionImport_ROM"/>
+    <addaction name="actionImport_Scene"/>
+    <addaction name="actionBG_Editor"/>
+    <addaction name="actionSprite_Editor"/>
+    <addaction name="actionExport_All_Data"/>
+    <addaction name="actionSave_Changes"/>
+    <addaction name="actionExit"/>
    </widget>
    <addaction name="menuNG_Scene_Editor"/>
   </widget>
@@ -118,6 +116,41 @@
    </attribute>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionImport_ROM">
+   <property name="text">
+    <string>Import ROM</string>
+   </property>
+  </action>
+  <action name="actionImport_Scene">
+   <property name="text">
+    <string>Import Scene</string>
+   </property>
+  </action>
+  <action name="actionBG_Editor">
+   <property name="text">
+    <string>BG Editor</string>
+   </property>
+  </action>
+  <action name="actionSprite_Editor">
+   <property name="text">
+    <string>Sprite Editor</string>
+   </property>
+  </action>
+  <action name="actionExport_All_Data">
+   <property name="text">
+    <string>Export All Data</string>
+   </property>
+  </action>
+  <action name="actionSave_Changes">
+   <property name="text">
+    <string>Save Changes</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>

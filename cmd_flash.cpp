@@ -31,3 +31,7 @@ cmd_flash::~cmd_flash(){
 void cmd_flash::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_flash::getName(){
+    return QString("FLASH");
+}

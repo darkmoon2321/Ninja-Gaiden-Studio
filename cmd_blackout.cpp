@@ -68,3 +68,7 @@ void cmd_blackout::parseText(std::string text,std::string line,uint32_t & offset
         erase_sprites = true;
     }
 }
+
+QString cmd_blackout::getName(){
+    return QString("BLACKOUT");
+}

@@ -13,6 +13,7 @@ public:
     uint32_t parseData(uint8_t *, uint32_t,uint8_t);
     bool killSignal();
     void parseText(std::string,std::string,uint32_t &);
+    QString getName();
 private:
     bool fade_in;
     bool fade_sprites;

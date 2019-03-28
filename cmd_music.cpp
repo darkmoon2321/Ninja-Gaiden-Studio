@@ -38,3 +38,7 @@ void cmd_music::parseText(std::string text,std::string line,uint32_t & offset){
     temp_int = getIntFromTXT(line,line_offset);
     track_number = (temp_int>=0) ? temp_int : 2;
 }
+
+QString cmd_music::getName(){
+    return QString("MUSIC");
+}

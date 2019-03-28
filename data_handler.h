@@ -39,6 +39,10 @@ public:
     void writeToTXT(std::string file_base);
     void importScene(uint8_t scene_num, std::string);
     uint8_t getNumScenes();
+
+    uint16_t * start_timers;
+    std::vector<script_command *> scenes[0x100];
+    uint8_t num_scenes;
 private:
     //const uint32_t ASM_FADE = 0x106A4;                        //Don't need to modify the fade timers.  They are all equal to the array index, 0 to 1F.
     const uint32_t ASM_ANIM_SPRITE_TIMER = 0x105CD;
@@ -90,12 +94,6 @@ private:
     const uint32_t BANK6_WRITE_START = 0x182E4;
 
     uint8_t * rom_data;
-    uint16_t * start_timers;
-    //script_command * scenes[0x100][0x800];
-    std::vector<script_command *> scenes[0x100];
-    //uint16_t * scene_sizes;
-    uint8_t num_scenes;
-
     void clearData();
     bool compactImages();
 };

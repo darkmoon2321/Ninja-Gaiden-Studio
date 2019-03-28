@@ -325,16 +325,8 @@ uint8_t * data_handler::exportAll(){
             }
         }
     }
-        /*if(!sprite_animations[i]){
-            k=i+1;
-            while(k<num_sprite_animations && !sprite_animations[k]) k++;
-            if(k>=num_sprite_animations) break;
-            sprite_animations[i] = sprite_animations[k];
-            sprite_animations[k] = NULL;
-        }
-    }
-    num_sprite_animations = j;*/
     num_sprite_animations = final_animation_number;
+
     //order sprite shakes
     j=0;
     for(i=0;i<num_sprite_shakes;i++){
@@ -542,24 +534,34 @@ uint8_t * data_handler::exportAll(){
     //bank 5
     //order sprite pointers
     j=0;
-    for(i=0;i<num_sprites;i++){
+    for(i=0;i<num_sprites;i++){       //Order sprites
         if(sprites[i]->references == 0){
             delete sprites[i];
             sprites[i] = NULL;
             continue;
         }
-        sprites[i]->id = j++;
-    }
-    for(i=0;i<num_sprites;i++){
-        if(!sprites[i]){
-            k=i+1;
-            while(k<num_sprites && !sprites[k]) k++;
-            if(k>=num_sprites) break;
-            sprites[i] = sprites[k];
-            sprites[k] = NULL;
+        if(sprites[i]->text_engine){
+            sprites[i]->id = j++;
         }
     }
-    num_sprites = j;
+    for(i=0;i<num_sprites;i++){
+        if(!sprites[i]) continue;
+        if(!(sprites[i]->text_engine)){
+            sprites[i]->id = j++;
+        }
+    }
+    uint16_t final_sprite_number = j;
+    sprite * temp_sprite;
+    for(j=0;j<final_sprite_number;j++){
+        for(i=j;i<num_sprites;i++){
+            if(sprites[i] && (sprites[i]->id == j)){
+                temp_sprite = sprites[j];
+                sprites[j] = sprites[i];
+                sprites[i] = temp_sprite;
+            }
+        }
+    }
+    num_sprites = final_sprite_number;
 
     //bank 6
     //order bg arrangements

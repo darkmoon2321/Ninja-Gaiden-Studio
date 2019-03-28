@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string>
 #include "data_types.h"
+#include "QString"
 
 class data_handler;
 
@@ -17,6 +18,8 @@ public:
     virtual uint32_t parseData(uint8_t *, uint32_t,uint8_t) = 0;
     virtual bool killSignal() = 0;
     virtual void parseText(std::string,std::string,uint32_t &) = 0;
+    virtual QString getName() = 0;
+    uint8_t getCommand();
 protected:
     uint8_t command;
 };

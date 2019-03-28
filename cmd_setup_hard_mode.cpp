@@ -34,3 +34,7 @@ cmd_setup_hard_mode::~cmd_setup_hard_mode(){
 void cmd_setup_hard_mode::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_setup_hard_mode::getName(){
+    return QString("SETUP_HARD_MODE");
+}

@@ -241,3 +241,7 @@ void cmd_movesprite::addRef(uint8_t scene_num){
         break;
     }
 }
+
+QString cmd_movesprite::getName(){
+    return QString("MOVE_SPRITE");
+}

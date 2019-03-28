@@ -52,8 +52,40 @@ MainWindow::MainWindow(QWidget *parent) :
     num_current_strings = 0;
     CHR_pages = NULL;
     num_chr_pages = 0;
+    command_names.clear();
+    scene_model = new QStringListModel;
+    scene_model->setStringList(command_names);
+    ui->listView->setModel(scene_model);
+    ui->listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    connect(ui->listView->selectionModel(),SIGNAL(selectionChanged(QItemSelection,QItemSelection)),this,SLOT(selectionHandler(QItemSelection,QItemSelection)));
     status_message.setText(QString("Ready"));
     ui->statusBar->addPermanentWidget(&status_message);
+    ui->comboBox_2->addItem("BAR_OR_RESET");
+    ui->comboBox_2->addItem("BGCOLOR_MASK");
+    ui->comboBox_2->addItem("BG_GFXPAGE");
+    ui->comboBox_2->addItem("BGSET/CLEAR");
+    ui->comboBox_2->addItem("BLACKOUT");
+    ui->comboBox_2->addItem("DIALOG_DELAY");
+    ui->comboBox_2->addItem("EARTHQUAKE");
+    ui->comboBox_2->addItem("END_SCENE_DURING_POPCORN_VIEWER");
+    ui->comboBox_2->addItem("FADE");
+    ui->comboBox_2->addItem("FLASH");
+    ui->comboBox_2->addItem("SPRITE1_SPEED");
+    ui->comboBox_2->addItem("MIRRORING");
+    ui->comboBox_2->addItem("MOVESPRITE");
+    ui->comboBox_2->addItem("MUSIC");
+    ui->comboBox_2->addItem("PALETTE_SET");
+    ui->comboBox_2->addItem("PPU_TRANSMIT");
+    ui->comboBox_2->addItem("SCROLL_SETUP");
+    ui->comboBox_2->addItem("SCROLL_SPEED");
+    ui->comboBox_2->addItem("SETUP_BOSS_RUSH_TEXT");
+    ui->comboBox_2->addItem("SETUP_HARD_MODE");
+    ui->comboBox_2->addItem("SETUP_RANKING_TEXT");
+    ui->comboBox_2->addItem("SPRITESET/CLEAR");
+    ui->comboBox_2->addItem("SYNC");
+    ui->comboBox_2->addItem("TEXT");
+    ui->comboBox_2->addItem("UNKNOWN");
+    ui->comboBox_2->addItem("WAIT/END_SCENE");
 }
 
 MainWindow::~MainWindow()
@@ -111,6 +143,9 @@ void MainWindow::on_importROM_button_clicked()
         }
         status_message.setText(QString("ROM Ready"));
         ui->statusBar->showMessage("Imported Rom Successfully");
+        ui->comboBox->clear();
+        for(i=0;i<d_handler.num_scenes;i++) ui->comboBox->addItem(QString(convertByteToHexString(i).c_str()));
+        ui->comboBox->addItem(QString("New"));
     }
 }
 
@@ -223,4 +258,61 @@ void MainWindow::updateTextTable(QString file_path){
         }
     }
     infile.close();
+}
+
+void MainWindow::on_actionImport_ROM_triggered()
+{
+    on_importROM_button_clicked();
+}
+
+
+void MainWindow::on_actionImport_Scene_triggered()
+{
+    on_importScene_button_clicked();
+}
+
+void MainWindow::on_actionBG_Editor_triggered()
+{
+    on_importBG_button_clicked();
+}
+
+
+void MainWindow::on_actionSprite_Editor_triggered()
+{
+    on_importSprite_button_clicked();
+}
+
+
+void MainWindow::on_actionExport_All_Data_triggered()
+{
+    on_export_button_clicked();
+}
+
+
+void MainWindow::on_actionSave_Changes_triggered()
+{
+    on_save_button_clicked();
+}
+
+void MainWindow::on_actionExit_triggered()
+{
+    close();
+}
+
+void MainWindow::on_comboBox_currentIndexChanged(int index)
+{
+    if(ui->comboBox->count() <= 1) return;
+    command_names.clear();
+    int i;
+    for(i=0;i<d_handler.scenes[index].size();i++){
+        command_names.push_back(d_handler.scenes[index].at(i)->getName());
+    }
+    scene_model->setStringList(command_names);
+}
+
+void MainWindow::selectionHandler(QItemSelection current_selection, QItemSelection previous_selection){
+    QModelIndex index = current_selection.indexes().at(0);
+    uint8_t command = d_handler.scenes[ui->comboBox->currentIndex()].at(index.row())->getCommand();
+    //ui->comboBox_2->setCurrentIndex();
+
 }

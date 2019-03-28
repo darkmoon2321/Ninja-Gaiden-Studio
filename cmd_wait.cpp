@@ -107,3 +107,7 @@ void cmd_wait::parseText(std::string text,std::string line,uint32_t & offset){
         current_sprites.clear();
     }
 }
+
+QString cmd_wait::getName(){
+    return (delay == 0xffff) ? QString("END_SCENE") : QString("WAIT");
+}

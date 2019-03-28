@@ -34,3 +34,7 @@ cmd_bar_or_reset::~cmd_bar_or_reset(){
 void cmd_bar_or_reset::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_bar_or_reset::getName(){
+    return QString("BAR_OR_RESET");
+}

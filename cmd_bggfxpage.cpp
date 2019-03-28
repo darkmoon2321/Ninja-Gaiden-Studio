@@ -43,3 +43,7 @@ void cmd_BGGFXpage::parseText(std::string text,std::string line,uint32_t & offse
     lower = (std::string::npos == line.find("LOW")) ? false : true;
     bg_CHR_page = chr_page;
 }
+
+QString cmd_BGGFXpage::getName(){
+    return QString("BG_GFXPAGE");
+}

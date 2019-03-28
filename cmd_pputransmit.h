@@ -14,6 +14,7 @@ public:
     bool killSignal();
     void parseText(std::string,std::string,uint32_t &);
     void addRef(uint8_t);
+    QString getName();
 private:
     ppu_string * to_transmit;
     uint16_t ppu_address;

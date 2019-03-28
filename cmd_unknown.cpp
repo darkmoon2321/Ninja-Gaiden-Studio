@@ -33,3 +33,7 @@ cmd_unknown::~cmd_unknown(){
 void cmd_unknown::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_unknown::getName(){
+    return QString("UNKNOWN");
+}

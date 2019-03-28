@@ -84,3 +84,7 @@ void cmd_fade::parseText(std::string text,std::string line,uint32_t & offset){
         fade_timer = temp_int & 0x1F;
     }
 }
+
+QString cmd_fade::getName(){
+    return QString("FADE");
+}

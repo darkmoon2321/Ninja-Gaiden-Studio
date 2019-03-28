@@ -39,3 +39,7 @@ void cmd_dialog_delay::parseText(std::string text,std::string line,uint32_t & of
     line_offset = line.find("DIALOG_DELAY ") + 13;
     delay = getIntFromTXT(line,line_offset);
 }
+
+QString cmd_dialog_delay::getName(){
+    return QString("DIALOG_DELAY");
+}

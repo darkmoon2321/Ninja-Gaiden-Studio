@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include "data_handler.h"
 #include <QLabel>
+#include <QStringListModel>
+#include <QStringList>
+#include <QItemSelection>
 
 namespace Ui {
 class MainWindow;
@@ -33,6 +36,23 @@ private slots:
 
     void on_centralWidget_destroyed();
 
+    void on_actionImport_ROM_triggered();
+
+    void on_actionImport_Scene_triggered();
+
+    void on_actionBG_Editor_triggered();
+
+    void on_actionSprite_Editor_triggered();
+
+    void on_actionExport_All_Data_triggered();
+
+    void on_actionSave_Changes_triggered();
+
+    void on_actionExit_triggered();
+
+    void on_comboBox_currentIndexChanged(int index);
+    void selectionHandler(QItemSelection,QItemSelection);
+
 private:
     uint8_t * data;
     uint32_t file_size;
@@ -42,6 +62,10 @@ private:
     QLabel status_message;
 
     void updateTextTable(QString);
+    QStringList command_names;
+    QStringListModel * scene_model;
+
+
 };
 
 #endif // MAINWINDOW_H

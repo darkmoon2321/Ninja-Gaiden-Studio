@@ -38,3 +38,7 @@ void cmd_halt_sprite1::parseText(std::string text,std::string line,uint32_t & of
         speed = getIntFromTXT(line,line_offset);
     }
 }
+
+QString cmd_halt_sprite1::getName(){
+    return QString("SPRITE1_SPEED");
+}

@@ -194,3 +194,7 @@ void cmd_scrollspeed::addRef(uint8_t scene_num){
     if(stop_splits) return;
     params->references |= (1<<scene_num);
 }
+
+QString cmd_scrollspeed::getName(){
+    return QString("SCROLL_SPEED");
+}

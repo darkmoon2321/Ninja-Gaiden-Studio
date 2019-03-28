@@ -13,6 +13,7 @@ public:
     uint32_t parseData(uint8_t *, uint32_t,uint8_t);
     bool killSignal();
     void parseText(std::string text, std::string line, uint32_t &offset);
+    QString getName();
 private:
     uint8_t unused_var;
 };

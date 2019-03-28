@@ -34,3 +34,7 @@ cmd_end_scene_during_popcorn_viewer::~cmd_end_scene_during_popcorn_viewer(){
 void cmd_end_scene_during_popcorn_viewer::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_end_scene_during_popcorn_viewer::getName(){
+    return QString("END_SCENE_DURING_POPCORN_VIEWWER");
+}

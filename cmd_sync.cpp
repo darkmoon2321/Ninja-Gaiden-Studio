@@ -31,3 +31,7 @@ cmd_sync::~cmd_sync(){
 void cmd_sync::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_sync::getName(){
+    return QString("SYNC");
+}

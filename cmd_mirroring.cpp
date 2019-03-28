@@ -47,3 +47,7 @@ void cmd_mirroring::parseText(std::string text,std::string line,uint32_t & offse
     }
     value = 0x1E | ((horizontal)? 1 : 0);
 }
+
+QString cmd_mirroring::getName(){
+    return QString("MIRRORING");
+}

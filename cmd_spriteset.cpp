@@ -493,3 +493,7 @@ void cmd_spriteset::addRef(uint8_t scene_num){
         }
     }
 }
+
+QString cmd_spriteset::getName(){
+    return (num_arrangements) ? QString("SPRITESET") : QString("SPRITECLEAR");
+}

@@ -160,6 +160,7 @@ typedef struct sprite : ng_type{
     uint8_t bg_gfx_page;
     std::string arrangement;
     bool modified;
+    bool text_engine;
     std::vector <palette_set> pals;
 
     sprite & operator = (const sprite &);

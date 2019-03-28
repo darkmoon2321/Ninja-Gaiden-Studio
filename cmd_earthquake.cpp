@@ -92,3 +92,7 @@ void cmd_earthquake::parseText(std::string text,std::string line,uint32_t & offs
 void cmd_earthquake::addRef(uint8_t scene_num){
     quake->references |= (1<<scene_num);
 }
+
+QString cmd_earthquake::getName(){
+    return QString("EARTHQUAKE");
+}

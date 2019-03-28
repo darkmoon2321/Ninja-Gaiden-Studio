@@ -61,3 +61,7 @@ void cmd_PPUtransmit::parseText(std::string text,std::string line,uint32_t & off
 void cmd_PPUtransmit::addRef(uint8_t scene_num){
     to_transmit->references |= scene_num;
 }
+
+QString cmd_PPUtransmit::getName(){
+    return QString("PPU_TRANSMIT");
+}

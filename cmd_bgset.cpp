@@ -237,3 +237,7 @@ void cmd_BGSET::addRef(uint8_t scene_num){
         bases[i]->references |= (1<<scene_num);
     }
 }
+
+QString cmd_BGSET::getName(){
+    return (num_arrangements)? QString("BGSET") : QString("BGCLEAR");
+}

@@ -34,3 +34,7 @@ cmd_setup_ranking_text::~cmd_setup_ranking_text(){
 void cmd_setup_ranking_text::parseText(std::string text,std::string line,uint32_t & offset){
 
 }
+
+QString cmd_setup_ranking_text::getName(){
+    return QString("SETUP_RANKING_TEXT");
+}

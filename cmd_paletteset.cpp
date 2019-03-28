@@ -159,3 +159,7 @@ void cmd_paletteset::addRef(uint8_t scene_num){
         changed_palettes[i]->references |= (1<<scene_num);
     }
 }
+
+QString cmd_paletteset::getName(){
+    return QString("PALETTE_SET");
+}

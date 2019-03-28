@@ -14,6 +14,7 @@ public:
     bool killSignal();
     void parseText(std::string,std::string,uint32_t &);
     void addRef(uint8_t);
+    QString getName();
 private:
     uint8_t num_arrangements;
     NESpalette * pals[4];

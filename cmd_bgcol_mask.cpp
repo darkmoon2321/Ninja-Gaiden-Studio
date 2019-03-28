@@ -49,3 +49,7 @@ void cmd_BGCOL_MASK::parseText(std::string text,std::string line,uint32_t & offs
     temp_int = getIntFromTXT(line,line_offset);
     mask_bits = (temp_int>=0) ? temp_int : 0;
 }
+
+QString cmd_BGCOL_MASK::getName(){
+    return QString("BGCOLOR_MASK");
+}

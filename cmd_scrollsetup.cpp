@@ -153,3 +153,7 @@ void cmd_scrollsetup::parseText(std::string text,std::string line,uint32_t & off
 void cmd_scrollsetup::addRef(uint8_t scene_num){
     params->references |= (1<<scene_num);
 }
+
+QString cmd_scrollsetup::getName(){
+    return QString("SCROLL_SETUP");
+}
